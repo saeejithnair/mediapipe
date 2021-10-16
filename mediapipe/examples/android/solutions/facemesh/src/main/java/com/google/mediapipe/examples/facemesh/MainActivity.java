@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
 
   private FaceMesh facemesh;
   // Run the pipeline and the model inference on GPU or CPU.
-  private static final boolean RUN_ON_GPU = true;
+  private static final boolean RUN_ON_GPU = false;
 
   private enum InputSource {
     UNKNOWN,
