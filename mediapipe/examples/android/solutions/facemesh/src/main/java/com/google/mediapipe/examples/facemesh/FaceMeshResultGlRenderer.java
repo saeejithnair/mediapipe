@@ -40,18 +40,10 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
   private static final int RIGHT_EYE_THICKNESS = 8;
   private static final float[] RIGHT_CHEEK_COLOR = new float[] {1f, 0.2f, 0.2f, 1f};
   private static final int RIGHT_CHEEK_THICKNESS = 8;
-  private static final float[] RIGHT_EYEBROW_COLOR = new float[] {1f, 0.2f, 0.2f, 1f};
-  private static final int RIGHT_EYEBROW_THICKNESS = 8;
-  private static final float[] LEFT_EYE_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
-  private static final int LEFT_EYE_THICKNESS = 8;
   private static final float[] LEFT_CHEEK_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
   private static final int LEFT_CHEEK_THICKNESS = 8;
-  private static final float[] LEFT_EYEBROW_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
-  private static final int LEFT_EYEBROW_THICKNESS = 8;
   private static final float[] FACE_OVAL_COLOR = new float[] {0.9f, 0.9f, 0.9f, 1f};
   private static final int FACE_OVAL_THICKNESS = 8;
-  private static final float[] LIPS_COLOR = new float[] {0.9f, 0.9f, 0.9f, 1f};
-  private static final int LIPS_THICKNESS = 8;
   private static final float[] FOREHEAD_COLOR = new float[] {0.2f, 0.2f, 1f, 1f};
   private static final int FOREHEAD_THICKNESS = 8;
   private static final String VERTEX_SHADER =
@@ -77,6 +69,8 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
   private static final int[] TRACKERS_LCHEEK = {25, 31, 111, 123, 187, 207, 216};
   private static final int FACE_LANDMARK_EXTREME_LEFT = 234;
   private static final int FACE_LANDMARK_EXTREME_RIGHT = 454;
+  private static ConvexHull gConvexHull = new ConvexHull();
+
 
   private int program;
   private int positionHandle;
@@ -118,31 +112,6 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           FaceMeshConnections.FACEMESH_TESSELATION,
           TESSELATION_COLOR,
           TESSELATION_THICKNESS);
-//      drawLandmarks(
-//          result.multiFaceLandmarks().get(i).getLandmarkList(),
-//          FaceMeshConnections.FACEMESH_RIGHT_EYE,
-//          RIGHT_EYE_COLOR,
-//          RIGHT_EYE_THICKNESS);
-//      drawLandmarks(
-//          result.multiFaceLandmarks().get(i).getLandmarkList(),
-//          FaceMeshConnections.FACEMESH_RIGHT_EYEBROW,
-//          RIGHT_EYEBROW_COLOR,
-//          RIGHT_EYEBROW_THICKNESS);
-//      drawLandmarks(
-//          result.multiFaceLandmarks().get(i).getLandmarkList(),
-//          FaceMeshConnections.FACEMESH_LEFT_EYE,
-//          LEFT_EYE_COLOR,
-//          LEFT_EYE_THICKNESS);
-//      drawLandmarks(
-//          result.multiFaceLandmarks().get(i).getLandmarkList(),
-//          FaceMeshConnections.FACEMESH_LEFT_EYEBROW,
-//          LEFT_EYEBROW_COLOR,
-//          LEFT_EYEBROW_THICKNESS);
-//      drawLandmarks(
-//          result.multiFaceLandmarks().get(i).getLandmarkList(),
-//          FaceMeshConnections.FACEMESH_LIPS,
-//          LIPS_COLOR,
-//          LIPS_THICKNESS);
       drawLandmarks(
           result.multiFaceLandmarks().get(i).getLandmarkList(),
           FaceMeshConnections.FACEMESH_FACE_OVAL,
@@ -163,19 +132,6 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           LANDMARKS_FOREHEAD,
           FOREHEAD_COLOR,
           FOREHEAD_THICKNESS);
-//      if (result.multiFaceLandmarks().get(i).getLandmarkCount()
-//          == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES) {
-//        drawLandmarks(
-//            result.multiFaceLandmarks().get(i).getLandmarkList(),
-//            FaceMeshConnections.FACEMESH_RIGHT_IRIS,
-//            RIGHT_EYE_COLOR,
-//            RIGHT_EYE_THICKNESS);
-//        drawLandmarks(
-//            result.multiFaceLandmarks().get(i).getLandmarkList(),
-//            FaceMeshConnections.FACEMESH_LEFT_IRIS,
-//            LEFT_EYE_COLOR,
-//            LEFT_EYE_THICKNESS);
-//      }
     }
   }
 
@@ -212,18 +168,11 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     GLES20.glLineWidth(thickness);
 
     calculateContour(faceLandmarkList, connection_landmarks);
-
-//    // Draw line between consecutive landmark points.
-//    for (int i=1; i<list_size; ++i) {
-//      drawConnection(faceLandmarkList, connection_landmarks[i-1], connection_landmarks[i]);
-//    }
   }
 
   private void calculateContour(List<NormalizedLandmark> faceLandmarkList,
                                 int[] connection_landmarks) {
     List<ConvexHull.Point> points = new ArrayList<ConvexHull.Point>();
-
-    ConvexHull convex_hull = new ConvexHull();
 
     for (int i=0; i<connection_landmarks.length; ++i) {
       NormalizedLandmark landmark = faceLandmarkList.get(connection_landmarks[i]);
@@ -233,7 +182,7 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     // Calculate convex hull from list of landmarks known to correspond to region.
     // E.g. create contour approximating cheek based on all landmarks known to be
     // in the right cheek region.
-    List<ConvexHull.Point> hull_points = convex_hull.convexHull(points);
+    List<ConvexHull.Point> hull_points = gConvexHull.convexHull(points);
 
     int hull_points_size = hull_points.size();
     if (hull_points_size < 2) {
