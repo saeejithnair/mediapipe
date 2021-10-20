@@ -24,6 +24,7 @@ import com.google.mediapipe.solutions.facemesh.FaceMeshResult;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 /** A custom implementation of {@link ResultGlRenderer} to render {@link FaceMeshResult}. */
@@ -56,6 +57,18 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           + "void main() {\n"
           + "  gl_FragColor = uColor;\n"
           + "}";
+
+  // Landmark keypoint indices for the facial features we're interested in.
+  // Each value in a LANDMARKS* list corresponds to a point on the mesh for that facial area.
+  private static final int[] LANDMARKS_LCHEEK = {454,447,345,346,347,348,349,350,357,343,437,420,279,358,423,426,436,432,430,394,379,365,397,288,361,323,366,352,280,330,425,411,376,416,367,435,401};
+  private static final int[] LANDMARKS_FOREHEAD = {127,34,162,21,139,143,35,156,71,54,103,68,70,124,226,130,113,46,63,104,67,69,105,53,52,66,108,109,10,151,107,9,55,65,8,285,336,337,338,297,299,296,295,282,334,333,332,284,298,293,283,276,300,301,251,389,368,383,353,356,264,372,265};
+  private static final int[] LANDMARKS_RCHEEK = {234,227,116,117,118,119,120,121,128,114,217,198,49,129,203,206,216,214,135,136,172,58,132,93,47,126,209,142,100,101,36,207,205,50,123,137,177,147,177,213,215,192,138};
+  private static final int[] TRACKERS_FOREHEAD = {104, 69, 108, 151, 337, 299, 333};
+  private static final int[] TRACKERS_RCHEEK = {255, 261, 340, 352, 411, 427, 436};
+  private static final int[] TRACKERS_LCHEEK = {25, 31, 111, 123, 187, 207, 216};
+  private static final int FACE_LANDMARK_EXTREME_LEFT = 234;
+  private static final int FACE_LANDMARK_EXTREME_RIGHT = 454;
+
   private int program;
   private int positionHandle;
   private int projectionMatrixHandle;
@@ -126,6 +139,16 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           FaceMeshConnections.FACEMESH_LIPS,
           LIPS_COLOR,
           LIPS_THICKNESS);
+      drawLandmarks(
+          result.multiFaceLandmarks().get(i).getLandmarkList(),
+          LANDMARKS_RCHEEK,
+          RIGHT_EYE_COLOR,
+          RIGHT_EYE_THICKNESS);
+      drawLandmarks(
+          result.multiFaceLandmarks().get(i).getLandmarkList(),
+          LANDMARKS_LCHEEK,
+          LEFT_EYE_COLOR,
+          LEFT_EYE_THICKNESS);
       if (result.multiFaceLandmarks().get(i).getLandmarkCount()
           == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES) {
         drawLandmarks(
@@ -159,18 +182,81 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     GLES20.glUniform4fv(colorHandle, 1, colorArray, 0);
     GLES20.glLineWidth(thickness);
     for (FaceMeshConnections.Connection c : connections) {
-      NormalizedLandmark start = faceLandmarkList.get(c.start());
-      NormalizedLandmark end = faceLandmarkList.get(c.end());
-      float[] vertex = {start.getX(), start.getY(), end.getX(), end.getY()};
-      FloatBuffer vertexBuffer =
-          ByteBuffer.allocateDirect(vertex.length * 4)
-              .order(ByteOrder.nativeOrder())
-              .asFloatBuffer()
-              .put(vertex);
-      vertexBuffer.position(0);
-      GLES20.glEnableVertexAttribArray(positionHandle);
-      GLES20.glVertexAttribPointer(positionHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-      GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2);
+      drawConnection(faceLandmarkList, c.start(), c.end());
     }
+  }
+
+  private void drawLandmarks(
+          List<NormalizedLandmark> faceLandmarkList,
+          int[] connection_landmarks,
+          float[] colorArray,
+          int thickness) {
+    int list_size = connection_landmarks.length;
+    assert list_size >= 2 : String.format("Received list of size %d, expected 2 or more elements.", list_size);
+
+    GLES20.glUniform4fv(colorHandle, 1, colorArray, 0);
+    GLES20.glLineWidth(thickness);
+
+    calculateContour(faceLandmarkList, connection_landmarks);
+
+//    // Draw line between consecutive landmark points.
+//    for (int i=1; i<list_size; ++i) {
+//      drawConnection(faceLandmarkList, connection_landmarks[i-1], connection_landmarks[i]);
+//    }
+  }
+
+  private void calculateContour(List<NormalizedLandmark> faceLandmarkList,
+                                int[] connection_landmarks) {
+    List<ConvexHull.Point> points = new ArrayList<ConvexHull.Point>();
+
+    ConvexHull convex_hull = new ConvexHull();
+
+    for (int i=0; i<connection_landmarks.length; ++i) {
+      NormalizedLandmark landmark = faceLandmarkList.get(connection_landmarks[i]);
+      points.add(new ConvexHull.Point(landmark.getX(), landmark.getY()));
+    }
+
+    // Calculate convex hull from list of landmarks known to correspond to region.
+    // E.g. create contour approximating cheek based on all landmarks known to be
+    // in the right cheek region.
+    List<ConvexHull.Point> hull_points = convex_hull.convexHull(points);
+
+    int hull_points_size = hull_points.size();
+    if (hull_points_size < 2) {
+      // If less than two points, not a contour. Nothing to display.
+      // TODO(snair): Log error/warning message?
+      return;
+    }
+
+    for (int i=1; i<hull_points_size; ++i) {
+      float[] vertex = {hull_points.get(i-1).x, hull_points.get(i-1).y,
+              hull_points.get(i).x, hull_points.get(i).y};
+      showVertex(vertex);
+    }
+
+    // Draw connection between first and last vertex.
+    float[] vertex = {hull_points.get(0).x, hull_points.get(0).y,
+            hull_points.get(hull_points_size-1).x, hull_points.get(hull_points_size-1).y};
+    showVertex(vertex);
+  }
+
+  private void drawConnection(List<NormalizedLandmark> faceLandmarkList,
+                              int connection_start, int connection_end) {
+    NormalizedLandmark start = faceLandmarkList.get(connection_start);
+    NormalizedLandmark end = faceLandmarkList.get(connection_end);
+    float[] vertex = {start.getX(), start.getY(), end.getX(), end.getY()};
+    showVertex(vertex);
+  }
+
+  private void showVertex(float[] vertex) {
+    FloatBuffer vertexBuffer =
+            ByteBuffer.allocateDirect(vertex.length * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer()
+                    .put(vertex);
+    vertexBuffer.position(0);
+    GLES20.glEnableVertexAttribArray(positionHandle);
+    GLES20.glVertexAttribPointer(positionHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+    GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2);
   }
 }
