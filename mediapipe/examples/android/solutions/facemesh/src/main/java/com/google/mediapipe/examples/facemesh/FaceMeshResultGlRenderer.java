@@ -15,6 +15,8 @@
 package com.google.mediapipe.examples.facemesh;
 
 import android.opengl.GLES20;
+import android.util.Log;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmark;
 import com.google.mediapipe.solutioncore.ResultGlRenderer;
@@ -31,20 +33,27 @@ import java.util.List;
 public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult> {
   private static final String TAG = "FaceMeshResultGlRenderer";
 
+  // Colours are in {R, G, B, alpha} format.
   private static final float[] TESSELATION_COLOR = new float[] {0.75f, 0.75f, 0.75f, 0.5f};
   private static final int TESSELATION_THICKNESS = 5;
   private static final float[] RIGHT_EYE_COLOR = new float[] {1f, 0.2f, 0.2f, 1f};
   private static final int RIGHT_EYE_THICKNESS = 8;
+  private static final float[] RIGHT_CHEEK_COLOR = new float[] {1f, 0.2f, 0.2f, 1f};
+  private static final int RIGHT_CHEEK_THICKNESS = 8;
   private static final float[] RIGHT_EYEBROW_COLOR = new float[] {1f, 0.2f, 0.2f, 1f};
   private static final int RIGHT_EYEBROW_THICKNESS = 8;
   private static final float[] LEFT_EYE_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
   private static final int LEFT_EYE_THICKNESS = 8;
+  private static final float[] LEFT_CHEEK_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
+  private static final int LEFT_CHEEK_THICKNESS = 8;
   private static final float[] LEFT_EYEBROW_COLOR = new float[] {0.2f, 1f, 0.2f, 1f};
   private static final int LEFT_EYEBROW_THICKNESS = 8;
   private static final float[] FACE_OVAL_COLOR = new float[] {0.9f, 0.9f, 0.9f, 1f};
   private static final int FACE_OVAL_THICKNESS = 8;
   private static final float[] LIPS_COLOR = new float[] {0.9f, 0.9f, 0.9f, 1f};
   private static final int LIPS_THICKNESS = 8;
+  private static final float[] FOREHEAD_COLOR = new float[] {0.2f, 0.2f, 1f, 1f};
+  private static final int FOREHEAD_THICKNESS = 8;
   private static final String VERTEX_SHADER =
       "uniform mat4 uProjectionMatrix;\n"
           + "attribute vec4 vPosition;\n"
@@ -109,26 +118,31 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           FaceMeshConnections.FACEMESH_TESSELATION,
           TESSELATION_COLOR,
           TESSELATION_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_RIGHT_EYE,
-          RIGHT_EYE_COLOR,
-          RIGHT_EYE_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_RIGHT_EYEBROW,
-          RIGHT_EYEBROW_COLOR,
-          RIGHT_EYEBROW_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LEFT_EYE,
-          LEFT_EYE_COLOR,
-          LEFT_EYE_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LEFT_EYEBROW,
-          LEFT_EYEBROW_COLOR,
-          LEFT_EYEBROW_THICKNESS);
+//      drawLandmarks(
+//          result.multiFaceLandmarks().get(i).getLandmarkList(),
+//          FaceMeshConnections.FACEMESH_RIGHT_EYE,
+//          RIGHT_EYE_COLOR,
+//          RIGHT_EYE_THICKNESS);
+//      drawLandmarks(
+//          result.multiFaceLandmarks().get(i).getLandmarkList(),
+//          FaceMeshConnections.FACEMESH_RIGHT_EYEBROW,
+//          RIGHT_EYEBROW_COLOR,
+//          RIGHT_EYEBROW_THICKNESS);
+//      drawLandmarks(
+//          result.multiFaceLandmarks().get(i).getLandmarkList(),
+//          FaceMeshConnections.FACEMESH_LEFT_EYE,
+//          LEFT_EYE_COLOR,
+//          LEFT_EYE_THICKNESS);
+//      drawLandmarks(
+//          result.multiFaceLandmarks().get(i).getLandmarkList(),
+//          FaceMeshConnections.FACEMESH_LEFT_EYEBROW,
+//          LEFT_EYEBROW_COLOR,
+//          LEFT_EYEBROW_THICKNESS);
+//      drawLandmarks(
+//          result.multiFaceLandmarks().get(i).getLandmarkList(),
+//          FaceMeshConnections.FACEMESH_LIPS,
+//          LIPS_COLOR,
+//          LIPS_THICKNESS);
       drawLandmarks(
           result.multiFaceLandmarks().get(i).getLandmarkList(),
           FaceMeshConnections.FACEMESH_FACE_OVAL,
@@ -136,32 +150,32 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
           FACE_OVAL_THICKNESS);
       drawLandmarks(
           result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LIPS,
-          LIPS_COLOR,
-          LIPS_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
           LANDMARKS_RCHEEK,
-          RIGHT_EYE_COLOR,
-          RIGHT_EYE_THICKNESS);
+          RIGHT_CHEEK_COLOR,
+          RIGHT_CHEEK_THICKNESS);
       drawLandmarks(
           result.multiFaceLandmarks().get(i).getLandmarkList(),
           LANDMARKS_LCHEEK,
-          LEFT_EYE_COLOR,
-          LEFT_EYE_THICKNESS);
-      if (result.multiFaceLandmarks().get(i).getLandmarkCount()
-          == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES) {
-        drawLandmarks(
-            result.multiFaceLandmarks().get(i).getLandmarkList(),
-            FaceMeshConnections.FACEMESH_RIGHT_IRIS,
-            RIGHT_EYE_COLOR,
-            RIGHT_EYE_THICKNESS);
-        drawLandmarks(
-            result.multiFaceLandmarks().get(i).getLandmarkList(),
-            FaceMeshConnections.FACEMESH_LEFT_IRIS,
-            LEFT_EYE_COLOR,
-            LEFT_EYE_THICKNESS);
-      }
+          LEFT_CHEEK_COLOR,
+          LEFT_CHEEK_THICKNESS);
+      drawLandmarks(
+          result.multiFaceLandmarks().get(i).getLandmarkList(),
+          LANDMARKS_FOREHEAD,
+          FOREHEAD_COLOR,
+          FOREHEAD_THICKNESS);
+//      if (result.multiFaceLandmarks().get(i).getLandmarkCount()
+//          == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES) {
+//        drawLandmarks(
+//            result.multiFaceLandmarks().get(i).getLandmarkList(),
+//            FaceMeshConnections.FACEMESH_RIGHT_IRIS,
+//            RIGHT_EYE_COLOR,
+//            RIGHT_EYE_THICKNESS);
+//        drawLandmarks(
+//            result.multiFaceLandmarks().get(i).getLandmarkList(),
+//            FaceMeshConnections.FACEMESH_LEFT_IRIS,
+//            LEFT_EYE_COLOR,
+//            LEFT_EYE_THICKNESS);
+//      }
     }
   }
 
@@ -224,6 +238,7 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     int hull_points_size = hull_points.size();
     if (hull_points_size < 2) {
       // If less than two points, not a contour. Nothing to display.
+      Log.e("calculateContour", String.format("Invalid hull created with %d vertices", hull_points_size));
       // TODO(snair): Log error/warning message?
       return;
     }
