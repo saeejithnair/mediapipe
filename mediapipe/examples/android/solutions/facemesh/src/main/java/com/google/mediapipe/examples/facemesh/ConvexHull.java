@@ -18,6 +18,11 @@ public class ConvexHull {
             this.y = y;
         }
 
+        public Point(double x, double y) {
+            this.x = (float)x;
+            this.y = (float)y;
+        }
+
         @Override
         public int compareTo(Point o) {
             return Float.compare(x, o.x);

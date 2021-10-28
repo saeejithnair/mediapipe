@@ -23,15 +23,39 @@ import com.google.mediapipe.solutioncore.ResultGlRenderer;
 import com.google.mediapipe.solutions.facemesh.FaceMesh;
 import com.google.mediapipe.solutions.facemesh.FaceMeshConnections;
 import com.google.mediapipe.solutions.facemesh.FaceMeshResult;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+
+import org.apache.commons.math3.analysis.differentiation.DerivativeStructure;
+import org.apache.commons.math3.analysis.differentiation.UnivariateDifferentiableFunction;
+import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
 
 /** A custom implementation of {@link ResultGlRenderer} to render {@link FaceMeshResult}. */
 public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult> {
-  private static final String TAG = "FaceMeshResultGlRenderer";
+
+  public static class NormalizedLandmarkCompare implements Comparator<NormalizedLandmark> {
+    @Override
+    public int compare(NormalizedLandmark o1, NormalizedLandmark o2) {
+      // Compare/sort based on x coordinates.
+      return Float.compare(o1.getX(), o2.getX());
+    }
+  }
+
+  public static class PointCompare implements Comparator<ConvexHull.Point> {
+    @Override
+    public int compare(ConvexHull.Point o1, ConvexHull.Point o2) {
+      // Compare/sort based on x coordinates.
+      return Float.compare(o1.x, o2.x);
+    }
+  }
 
   // Colours are in {R, G, B, alpha} format.
   private static final float[] TESSELATION_COLOR = new float[] {0.75f, 0.75f, 0.75f, 0.5f};
@@ -46,6 +70,8 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
   private static final int FACE_OVAL_THICKNESS = 8;
   private static final float[] FOREHEAD_COLOR = new float[] {0.2f, 0.2f, 1f, 1f};
   private static final int FOREHEAD_THICKNESS = 8;
+  private static final float[] TRACKER_COLOR = new float[] {1f, 1f, 0.2f, 1f};
+  private static final int TRACKER_THICKNESS = 8;
   private static final String VERTEX_SHADER =
       "uniform mat4 uProjectionMatrix;\n"
           + "attribute vec4 vPosition;\n"
@@ -64,13 +90,6 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
   private static final int[] LANDMARKS_LCHEEK = {454,447,345,346,347,348,349,350,357,343,437,420,279,358,423,426,436,432,430,394,379,365,397,288,361,323,366,352,280,330,425,411,376,416,367,435,401};
   private static final int[] LANDMARKS_FOREHEAD = {127,34,162,21,139,143,35,156,71,54,103,68,70,124,226,130,113,46,63,104,67,69,105,53,52,66,108,109,10,151,107,9,55,65,8,285,336,337,338,297,299,296,295,282,334,333,332,284,298,293,283,276,300,301,251,389,368,383,353,356,264,372,265};
   private static final int[] LANDMARKS_RCHEEK = {234,227,116,117,118,119,120,121,128,114,217,198,49,129,203,206,216,214,135,136,172,58,132,93,47,126,209,142,100,101,36,207,205,50,123,137,177,147,177,213,215,192,138};
-  private static final int[] TRACKERS_FOREHEAD = {104, 69, 108, 151, 337, 299, 333};
-  private static final int[] TRACKERS_RCHEEK = {255, 261, 340, 352, 411, 427, 436};
-  private static final int[] TRACKERS_LCHEEK = {25, 31, 111, 123, 187, 207, 216};
-  private static final int FACE_LANDMARK_EXTREME_LEFT = 234;
-  private static final int FACE_LANDMARK_EXTREME_RIGHT = 454;
-  private static ConvexHull gConvexHull = new ConvexHull();
-
 
   private int program;
   private int positionHandle;
@@ -107,28 +126,25 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
 
     int numFaces = result.multiFaceLandmarks().size();
     for (int i = 0; i < numFaces; ++i) {
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
+      List<NormalizedLandmark> faceLandmarkList = result.multiFaceLandmarks().get(i).getLandmarkList();
+
+      drawLandmarks(faceLandmarkList,
           FaceMeshConnections.FACEMESH_TESSELATION,
           TESSELATION_COLOR,
           TESSELATION_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
+      drawLandmarks(faceLandmarkList,
           FaceMeshConnections.FACEMESH_FACE_OVAL,
           FACE_OVAL_COLOR,
           FACE_OVAL_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
+      drawLandmarks(faceLandmarkList,
           LANDMARKS_RCHEEK,
           RIGHT_CHEEK_COLOR,
           RIGHT_CHEEK_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
+      drawLandmarks(faceLandmarkList,
           LANDMARKS_LCHEEK,
           LEFT_CHEEK_COLOR,
           LEFT_CHEEK_THICKNESS);
-      drawLandmarks(
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
+      drawLandmarks(faceLandmarkList,
           LANDMARKS_FOREHEAD,
           FOREHEAD_COLOR,
           FOREHEAD_THICKNESS);
@@ -167,28 +183,13 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     GLES20.glUniform4fv(colorHandle, 1, colorArray, 0);
     GLES20.glLineWidth(thickness);
 
-    calculateContour(faceLandmarkList, connection_landmarks);
-  }
+    List<ConvexHull.Point> hull_points = calculateContour(faceLandmarkList, connection_landmarks);
 
-  private void calculateContour(List<NormalizedLandmark> faceLandmarkList,
-                                int[] connection_landmarks) {
-    List<ConvexHull.Point> points = new ArrayList<ConvexHull.Point>();
-
-    for (int i=0; i<connection_landmarks.length; ++i) {
-      NormalizedLandmark landmark = faceLandmarkList.get(connection_landmarks[i]);
-      points.add(new ConvexHull.Point(landmark.getX(), landmark.getY()));
-    }
-
-    // Calculate convex hull from list of landmarks known to correspond to region.
-    // E.g. create contour approximating cheek based on all landmarks known to be
-    // in the right cheek region.
-    List<ConvexHull.Point> hull_points = gConvexHull.convexHull(points);
-
+    // Draw contour created through convex hull.
     int hull_points_size = hull_points.size();
     if (hull_points_size < 2) {
       // If less than two points, not a contour. Nothing to display.
       Log.e("calculateContour", String.format("Invalid hull created with %d vertices", hull_points_size));
-      // TODO(snair): Log error/warning message?
       return;
     }
 
@@ -202,6 +203,21 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     float[] vertex = {hull_points.get(0).x, hull_points.get(0).y,
             hull_points.get(hull_points_size-1).x, hull_points.get(hull_points_size-1).y};
     showVertex(vertex);
+  }
+
+  private List<ConvexHull.Point> calculateContour(List<NormalizedLandmark> faceLandmarkList,
+                                int[] connection_landmarks) {
+    List<ConvexHull.Point> points = new ArrayList<>();
+
+    for (int i=0; i<connection_landmarks.length; ++i) {
+      NormalizedLandmark landmark = faceLandmarkList.get(connection_landmarks[i]);
+      points.add(new ConvexHull.Point(landmark.getX(), landmark.getY()));
+    }
+
+    // Calculate convex hull from list of landmarks known to correspond to region.
+    // E.g. create contour approximating cheek based on all landmarks known to be
+    // in the right cheek region.
+    return ConvexHull.convexHull(points);
   }
 
   private void drawConnection(List<NormalizedLandmark> faceLandmarkList,

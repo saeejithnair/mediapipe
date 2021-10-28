@@ -17,7 +17,9 @@ package com.google.mediapipe.examples.facemesh;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.opengl.GLES20;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
@@ -28,6 +30,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.exifinterface.media.ExifInterface;
 // ContentResolver dependency
+import com.google.common.graph.Graph;
 import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmark;
 import com.google.mediapipe.solutioncore.CameraInput;
 import com.google.mediapipe.solutioncore.SolutionGlSurfaceView;
@@ -35,8 +38,20 @@ import com.google.mediapipe.solutioncore.VideoInput;
 import com.google.mediapipe.solutions.facemesh.FaceMesh;
 import com.google.mediapipe.solutions.facemesh.FaceMeshOptions;
 import com.google.mediapipe.solutions.facemesh.FaceMeshResult;
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.LegendRenderer;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+
+import org.apache.commons.math3.analysis.differentiation.DerivativeStructure;
+import org.apache.commons.math3.analysis.differentiation.UnivariateDifferentiableFunction;
+import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /** Main activity of MediaPipe Face Mesh app. */
 public class MainActivity extends AppCompatActivity {
@@ -63,6 +78,29 @@ public class MainActivity extends AppCompatActivity {
   private CameraInput cameraInput;
 
   private SolutionGlSurfaceView<FaceMeshResult> glSurfaceView;
+
+  private LineGraphSeries<DataPoint> gRadiiRcheek = new LineGraphSeries<>();
+  private LineGraphSeries<DataPoint> gRadiiLcheek = new LineGraphSeries<>();
+//  private LineGraphSeries<DataPoint> gRadiiForehead = new LineGraphSeries<>();
+  private LineGraphSeries<DataPoint> gRadiiForehead = new LineGraphSeries<DataPoint>(new DataPoint[] {
+          new DataPoint(0, 1),
+          new DataPoint(1, 5),
+          new DataPoint(2, 3),
+          new DataPoint(3, 2),
+          new DataPoint(4, 6)
+  });
+
+  private static int num_frames_counter = 4;
+
+  private static final int[] TRACKERS_FOREHEAD = {104, 69, 108, 151, 337, 299, 333};
+  private static final int[] TRACKERS_RCHEEK = {255, 261, 340, 352, 411, 427, 436};
+  private static final int[] TRACKERS_LCHEEK = {25, 31, 111, 123, 187, 207, 216};
+  private static final int FACE_LANDMARK_EXTREME_LEFT = 234;
+  private static final int FACE_LANDMARK_EXTREME_RIGHT = 454;
+
+  private static SplineInterpolator gInterpolator = new SplineInterpolator();
+
+//  private final Handler mHandler = new Handler();
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -265,6 +303,27 @@ public class MainActivity extends AppCompatActivity {
       videoInput.setNewFrameListener(textureFrame -> facemesh.send(textureFrame));
     }
 
+    GraphView graph = (GraphView) findViewById(R.id.graph);
+    assert graph != null;
+
+    graph.addSeries(gRadiiForehead);
+    graph.addSeries(gRadiiLcheek);
+    graph.addSeries(gRadiiRcheek);
+
+    graph.getViewport().setXAxisBoundsManual(true);
+    graph.getViewport().setMinX(0);
+    graph.getViewport().setMaxX(40);
+
+    gRadiiForehead.setTitle("Forehead");
+    gRadiiForehead.setColor(0xFFFF0000);
+    gRadiiLcheek.setTitle("LCheek");
+    gRadiiLcheek.setColor(0xFF00FF00);
+    gRadiiRcheek.setTitle("RCheek");
+    gRadiiRcheek.setColor(0xFF0000FF);
+    graph.getLegendRenderer().setVisible(true);
+    graph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.TOP);
+
+
     // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
     glSurfaceView =
         new SolutionGlSurfaceView<>(this, facemesh.getGlContext(), facemesh.getGlMajorVersion());
@@ -273,6 +332,8 @@ public class MainActivity extends AppCompatActivity {
     facemesh.setResultListener(
         faceMeshResult -> {
           logNoseLandmark(faceMeshResult, /*showPixelValues=*/ false);
+          updateRadiusGraph(faceMeshResult, num_frames_counter, gRadiiForehead, gRadiiLcheek, gRadiiRcheek);
+          num_frames_counter++;
           glSurfaceView.setRenderData(faceMeshResult);
           glSurfaceView.requestRender();
         });
@@ -282,6 +343,8 @@ public class MainActivity extends AppCompatActivity {
     if (inputSource == InputSource.CAMERA) {
       glSurfaceView.post(this::startCamera);
     }
+
+//    graph.onDataChanged(true, true);
 
     // Updates the preview layout.
     FrameLayout frameLayout = findViewById(R.id.preview_display_layout);
@@ -338,6 +401,146 @@ public class MainActivity extends AppCompatActivity {
           String.format(
               "MediaPipe Face Mesh nose normalized coordinates (value range: [0, 1]): x=%f, y=%f",
               noseLandmark.getX(), noseLandmark.getY()));
+    }
+  }
+
+  private void updateRadiusGraph(FaceMeshResult result, int num_frames_counter,
+                                 LineGraphSeries<DataPoint> radii_forehead,
+                                 LineGraphSeries<DataPoint> radii_lcheek,
+                                 LineGraphSeries<DataPoint> radii_rcheek) {
+
+    int numFaces = result.multiFaceLandmarks().size();
+    for (int i = 0; i < numFaces; ++i) {
+      double[] forehead_tracker_coords_x = new double[TRACKERS_FOREHEAD.length];
+      double[] rcheek_tracker_coords_x = new double[TRACKERS_RCHEEK.length];
+      double[] lcheek_tracker_coords_x = new double[TRACKERS_LCHEEK.length];
+      double[] forehead_tracker_coords_y = new double[TRACKERS_FOREHEAD.length];
+      double[] rcheek_tracker_coords_y = new double[TRACKERS_RCHEEK.length];
+      double[] lcheek_tracker_coords_y = new double[TRACKERS_LCHEEK.length];
+
+      double face_width = calculateFaceWidth(result.multiFaceLandmarks().get(i).getLandmarkList());
+      List<NormalizedLandmark> faceLandmarkList = result.multiFaceLandmarks().get(i).getLandmarkList();
+
+      double radius_forehead = calculateRadius(faceLandmarkList, TRACKERS_FOREHEAD,
+              forehead_tracker_coords_x, forehead_tracker_coords_y, face_width, true);
+      double radius_lcheek = calculateRadius(faceLandmarkList, TRACKERS_LCHEEK, lcheek_tracker_coords_x,
+              lcheek_tracker_coords_y, face_width, false);
+      double radius_rcheek = calculateRadius(faceLandmarkList, TRACKERS_RCHEEK, rcheek_tracker_coords_x,
+              rcheek_tracker_coords_y, face_width,true);
+
+      radii_forehead.appendData(new DataPoint(num_frames_counter, radius_forehead), true, 40);
+      radii_lcheek.appendData(new DataPoint(num_frames_counter, radius_lcheek), true, 40);
+      radii_rcheek.appendData(new DataPoint(num_frames_counter, radius_rcheek), true, 40);
+    }
+  }
+
+  private void moveToOrigin(double[] x_coords, double[] y_coords, boolean flip_y_coords) {
+    double x0 = x_coords[0];
+    double y0 = y_coords[0];
+
+    if (flip_y_coords) {
+      y0 = -y0;
+    }
+
+    assert x_coords.length == y_coords.length;
+
+    for (int i=0; i<x_coords.length; ++i) {
+      if (flip_y_coords) {
+        y_coords[i] = -y_coords[i] - y0;
+      } else {
+        y_coords[i] = y_coords[i] - y0;
+      }
+      x_coords[i] = x_coords[i] - x0;
+    }
+  }
+
+  private void rotateToXAxis(double[] x_coords, double[] y_coords) {
+    double xn = x_coords[x_coords.length-1];
+    double yn = y_coords[y_coords.length-1];
+
+    assert x_coords.length == y_coords.length;
+
+    double theta = Math.atan2(-yn, xn);
+
+    for (int i=0; i<x_coords.length; ++i) {
+      double cur_x = x_coords[i];
+      double cur_y = y_coords[i];
+
+      x_coords[i] = cur_x * Math.cos(theta) - cur_y * Math.sin(theta);
+      y_coords[i] = cur_x * Math.sin(theta) + cur_y * Math.cos(theta);
+    }
+  }
+
+  private double getRad(double[] x_coords, double[] y_coords) {
+    UnivariateDifferentiableFunction y_spl = gInterpolator.interpolate(x_coords, y_coords);
+    double midpoint = (x_coords[0] + x_coords[x_coords.length-1])/2;
+    DerivativeStructure y_spl_d2 = y_spl.value(new DerivativeStructure(1, 2, 0, midpoint));
+
+    // Calculate radius of curvature.
+    return (1/Math.abs(y_spl_d2.getPartialDerivative(2)));
+  }
+
+  private double calculateRadius(List<NormalizedLandmark> faceLandmarkList, int[] tracker_indices,
+                               double[] tracker_coords_x, double[] tracker_coords_y,
+                               double face_width, boolean flip_y_coords) {
+    assert tracker_coords_x.length == tracker_indices.length;
+    assert tracker_coords_y.length == tracker_indices.length;
+
+    List<NormalizedLandmark> landmarks = new ArrayList<NormalizedLandmark>();
+
+    for (int i=0; i<tracker_indices.length; ++i) {
+      NormalizedLandmark landmark = faceLandmarkList.get(tracker_indices[i]);
+      landmarks.add(landmark);
+    }
+
+    Collections.sort(landmarks, new FaceMeshResultGlRenderer.NormalizedLandmarkCompare());
+
+    for (int i=0; i<tracker_indices.length; ++i) {
+      NormalizedLandmark landmark = landmarks.get(i);
+      tracker_coords_x[i] = landmark.getX();
+      tracker_coords_y[i] = landmark.getY();
+    }
+
+    // Rotate points so that we can use the x-axis as the reference baseline for getting the max
+    // value.
+    rotateToXAxis(tracker_coords_x, tracker_coords_y);
+
+    // Sort the points by x-coordinate so that the list is monotonic
+    List<ConvexHull.Point> tracker_coords = new ArrayList<>();
+    for (int i=0; i<tracker_indices.length; ++i) {
+      tracker_coords.add(new ConvexHull.Point(tracker_coords_x[i], tracker_coords_y[i]));
+    }
+    Collections.sort(tracker_coords, new FaceMeshResultGlRenderer.PointCompare());
+
+    // Dump list of points into two separate arrays (since spline interpolation can only be done
+    // on using two distinct arrays, not objects.
+    convertPointsListToArrays(tracker_coords, tracker_coords_x, tracker_coords_y);
+
+    // Translate all points such that the first point is at the origin
+    moveToOrigin(tracker_coords_x, tracker_coords_y, flip_y_coords);
+
+    // Calculate radius.
+    return (getRad(tracker_coords_x, tracker_coords_y) / face_width * 10);
+  }
+
+  private double calculateFaceWidth(List<NormalizedLandmark> faceLandmarkList) {
+    NormalizedLandmark face_left = faceLandmarkList.get(FACE_LANDMARK_EXTREME_LEFT);
+    NormalizedLandmark face_right = faceLandmarkList.get(FACE_LANDMARK_EXTREME_RIGHT);
+
+    double delta_x = face_left.getX() - face_right.getX();
+    double delta_y = face_left.getY() - face_right.getY();
+
+    // Calculate euclidean distance between two points.
+    return Math.sqrt(delta_x*delta_x + delta_y*delta_y);
+  }
+
+  private void convertPointsListToArrays(List<ConvexHull.Point> points, double[] points_x, double[] points_y) {
+    assert points_x.length == points_y.length;
+    assert points_x.length == points.size();
+
+    for (int i=0; i<points_x.length; ++i) {
+      points_x[i] = points.get(i).x;
+      points_y[i] = points.get(i).y;
     }
   }
 }

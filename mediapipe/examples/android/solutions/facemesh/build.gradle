@@ -48,4 +48,10 @@ dependencies {
     implementation "androidx.camera:camera-core:$camerax_version"
     implementation "androidx.camera:camera-camera2:$camerax_version"
     implementation "androidx.camera:camera-lifecycle:$camerax_version"
+
+    // Used for spline interpolation
+    implementation "org.apache.commons:commons-math3:3.6.1"
+
+    // Used for plotting
+    implementation 'com.jjoe64:graphview:4.2.2'
 }

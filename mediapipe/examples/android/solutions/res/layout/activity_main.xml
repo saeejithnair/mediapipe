@@ -1,40 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
     <LinearLayout
-        android:id="@+id/buttons"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        style="?android:attr/buttonBarStyle" android:gravity="center"
-        android:orientation="horizontal">
-        <Button
-            android:id="@+id/button_load_picture"
-            android:layout_width="wrap_content"
-            style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
-            android:text="@string/load_picture" />
-        <Button
-            android:id="@+id/button_load_video"
-            android:layout_width="wrap_content"
-            style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
-            android:text="@string/load_video" />
-        <Button
-            android:id="@+id/button_start_camera"
-            android:layout_width="wrap_content"
-            style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
-            android:text="@string/start_camera" />
-    </LinearLayout>
-    <FrameLayout
-        android:id="@+id/preview_display_layout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-        <TextView
-            android:id="@+id/no_view"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+        <LinearLayout
+            android:id="@+id/buttons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:text="@string/instruction" />
-    </FrameLayout>
-</LinearLayout>
+            style="?android:attr/buttonBarStyle" android:gravity="center"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/button_load_picture"
+                android:layout_width="wrap_content"
+                style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
+                android:text="@string/load_picture" />
+            <Button
+                android:id="@+id/button_load_video"
+                android:layout_width="wrap_content"
+                style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
+                android:text="@string/load_video" />
+            <Button
+                android:id="@+id/button_start_camera"
+                android:layout_width="wrap_content"
+                style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
+                android:text="@string/start_camera" />
+            <Button
+                android:id="@+id/button_show_results"
+                android:layout_width="wrap_content"
+                style="?android:attr/buttonBarButtonStyle" android:layout_height="wrap_content"
+                android:text="@string/show_results" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:showDividers="middle"
+            android:weightSum="2">
+            <FrameLayout
+                android:id="@+id/preview_display_layout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1">
+                <TextView
+                    android:id="@+id/no_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="@string/instruction" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/graph_display_layout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1">
+                <com.jjoe64.graphview.GraphView
+                    android:id="@+id/graph"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="bottom"/>
+            </FrameLayout>
+<!--            <FrameLayout-->
+<!--                android:id="@+id/graph_display_layout2"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"-->
+<!--                android:layout_weight="1">-->
+<!--                <com.jjoe64.graphview.GraphView-->
+<!--                    android:id="@+id/graph2"-->
+<!--                    android:layout_width="match_parent"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:gravity="bottom"/>-->
+<!--            </FrameLayout>-->
+<!--            <FrameLayout-->
+<!--                android:id="@+id/graph_display_layout3"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"-->
+<!--                android:layout_weight="1">-->
+<!--                <com.jjoe64.graphview.GraphView-->
+<!--                    android:id="@+id/graph3"-->
+<!--                    android:layout_width="match_parent"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:gravity="bottom"/>-->
+<!--            </FrameLayout>-->
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
