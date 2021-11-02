@@ -16,6 +16,7 @@ package com.google.mediapipe.examples.facemesh;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.opengl.GLES20;
 import android.os.Bundle;
@@ -79,18 +80,18 @@ public class MainActivity extends AppCompatActivity {
 
   private SolutionGlSurfaceView<FaceMeshResult> glSurfaceView;
 
-  private LineGraphSeries<DataPoint> gRadiiRcheek = new LineGraphSeries<>();
-  private LineGraphSeries<DataPoint> gRadiiLcheek = new LineGraphSeries<>();
+//  private LineGraphSeries<DataPoint> gRadiiRcheek = new LineGraphSeries<>();
+//  private LineGraphSeries<DataPoint> gRadiiLcheek = new LineGraphSeries<>();
 //  private LineGraphSeries<DataPoint> gRadiiForehead = new LineGraphSeries<>();
-  private LineGraphSeries<DataPoint> gRadiiForehead = new LineGraphSeries<DataPoint>(new DataPoint[] {
-          new DataPoint(0, 1),
-          new DataPoint(1, 5),
-          new DataPoint(2, 3),
-          new DataPoint(3, 2),
-          new DataPoint(4, 6)
-  });
 
-  private static int num_frames_counter = 4;
+  private LineGraphSeries<DataPoint> gGreenIntensityForehead = new LineGraphSeries<>(new DataPoint[] {
+          new DataPoint(0, 0)});
+  private LineGraphSeries<DataPoint> gGreenIntensityRcheek = new LineGraphSeries<>(new DataPoint[] {
+          new DataPoint(0, 0)});
+  private LineGraphSeries<DataPoint> gGreenIntensityLcheek = new LineGraphSeries<>(new DataPoint[] {
+          new DataPoint(0, 0)});
+
+  private static int num_frames_counter = 1;
 
   private static final int[] TRACKERS_FOREHEAD = {104, 69, 108, 151, 337, 299, 333};
   private static final int[] TRACKERS_RCHEEK = {255, 261, 340, 352, 411, 427, 436};
@@ -306,20 +307,36 @@ public class MainActivity extends AppCompatActivity {
     GraphView graph = (GraphView) findViewById(R.id.graph);
     assert graph != null;
 
-    graph.addSeries(gRadiiForehead);
-    graph.addSeries(gRadiiLcheek);
-    graph.addSeries(gRadiiRcheek);
+//    graph.addSeries(gRadiiForehead);
+//    graph.addSeries(gRadiiLcheek);
+//    graph.addSeries(gRadiiRcheek);
+    //    gRadiiForehead.setTitle("Forehead");
+//    gRadiiForehead.setColor(0xFFFF0000);
+//    gRadiiLcheek.setTitle("LCheek");
+//    gRadiiLcheek.setColor(0xFF00FF00);
+//    gRadiiRcheek.setTitle("RCheek");
+//    gRadiiRcheek.setColor(0xFF0000FF);
+
+
+    graph.addSeries(gGreenIntensityForehead);
+    graph.addSeries(gGreenIntensityLcheek);
+    graph.addSeries(gGreenIntensityRcheek);
+
+    gGreenIntensityForehead.setTitle("Forehead");
+    gGreenIntensityForehead.setColor(0xFF0000FF);
+    gGreenIntensityLcheek.setTitle("LCheek");
+    gGreenIntensityLcheek.setColor(0xFF00FF00);
+    gGreenIntensityRcheek.setTitle("RCheek");
+    gGreenIntensityRcheek.setColor(0xFFFF0000);
+
 
     graph.getViewport().setXAxisBoundsManual(true);
+    graph.getViewport().setYAxisBoundsManual(true);
     graph.getViewport().setMinX(0);
     graph.getViewport().setMaxX(40);
+    graph.getViewport().setMinY(0);
+    graph.getViewport().setMaxY(255);
 
-    gRadiiForehead.setTitle("Forehead");
-    gRadiiForehead.setColor(0xFFFF0000);
-    gRadiiLcheek.setTitle("LCheek");
-    gRadiiLcheek.setColor(0xFF00FF00);
-    gRadiiRcheek.setTitle("RCheek");
-    gRadiiRcheek.setColor(0xFF0000FF);
     graph.getLegendRenderer().setVisible(true);
     graph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.TOP);
 
@@ -332,7 +349,8 @@ public class MainActivity extends AppCompatActivity {
     facemesh.setResultListener(
         faceMeshResult -> {
           logNoseLandmark(faceMeshResult, /*showPixelValues=*/ false);
-          updateRadiusGraph(faceMeshResult, num_frames_counter, gRadiiForehead, gRadiiLcheek, gRadiiRcheek);
+//          updateRadiusGraph(faceMeshResult, num_frames_counter, gRadiiForehead, gRadiiLcheek, gRadiiRcheek);
+          updateIntensityGraph(faceMeshResult, num_frames_counter, gGreenIntensityForehead, gGreenIntensityRcheek, gGreenIntensityLcheek);
           num_frames_counter++;
           glSurfaceView.setRenderData(faceMeshResult);
           glSurfaceView.requestRender();
@@ -344,7 +362,7 @@ public class MainActivity extends AppCompatActivity {
       glSurfaceView.post(this::startCamera);
     }
 
-//    graph.onDataChanged(true, true);
+    graph.onDataChanged(true, true);
 
     // Updates the preview layout.
     FrameLayout frameLayout = findViewById(R.id.preview_display_layout);
@@ -402,6 +420,56 @@ public class MainActivity extends AppCompatActivity {
               "MediaPipe Face Mesh nose normalized coordinates (value range: [0, 1]): x=%f, y=%f",
               noseLandmark.getX(), noseLandmark.getY()));
     }
+  }
+
+  private void updateIntensityGraph(FaceMeshResult result, int num_frames_counter,
+                                    LineGraphSeries<DataPoint> green_forehead,
+                                    LineGraphSeries<DataPoint> green_rcheek,
+                                    LineGraphSeries<DataPoint> green_lcheek) {
+    int numFaces = result.multiFaceLandmarks().size();
+    for (int i=0; i<numFaces; ++i) {
+      List<NormalizedLandmark> faceLandmarkList = result.multiFaceLandmarks().get(i).getLandmarkList();
+
+      double mean_intensity_forehead = calculateMeanIntensityGreen(result.inputBitmap(),
+              faceLandmarkList, FaceMeshResultGlRenderer.LANDMARKS_FOREHEAD);
+      double mean_intensity_lcheek = calculateMeanIntensityGreen(result.inputBitmap(),
+              faceLandmarkList, FaceMeshResultGlRenderer.LANDMARKS_LCHEEK);
+      double mean_intensity_rcheek = calculateMeanIntensityGreen(result.inputBitmap(),
+              faceLandmarkList, FaceMeshResultGlRenderer.LANDMARKS_RCHEEK);
+
+      green_forehead.appendData(new DataPoint(num_frames_counter, mean_intensity_forehead), true, 40);
+      green_rcheek.appendData(new DataPoint(num_frames_counter, mean_intensity_rcheek), true, 40);
+      green_lcheek.appendData(new DataPoint(num_frames_counter, mean_intensity_lcheek), true, 40);
+    }
+  }
+
+  private double calculateMeanIntensityGreen(Bitmap bmp,
+                                             List<NormalizedLandmark> faceLandmarkList,
+                                             int[] landmark_indices) {
+    int cum_sum = 0;
+    int width = bmp.getWidth();
+    int height = bmp.getHeight();
+    ConvexHull.Point point;
+
+    List<ConvexHull.Point> hull_points = FaceMeshResultGlRenderer.calculateContour(faceLandmarkList,
+            landmark_indices);
+
+    for (int i=0; i<hull_points.size(); ++i) {
+      // Get landmark in contour region.
+//      NormalizedLandmark landmark = faceLandmarkList.get(landmark_indices[i]);
+      point = hull_points.get(i);
+      // Convert normalized coordinate to pixels.
+      double px_x = point.x * width;
+      double px_y = (1-point.y) * height;
+
+      // Get pixel intensity and add to cumulative sum.
+      int pixel = bmp.getPixel((int)px_x, (int)px_y);
+      cum_sum += Color.green(pixel);
+    }
+
+    double mean_intensity = cum_sum / hull_points.size();
+
+    return mean_intensity;
   }
 
   private void updateRadiusGraph(FaceMeshResult result, int num_frames_counter,

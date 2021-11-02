@@ -87,9 +87,9 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
 
   // Landmark keypoint indices for the facial features we're interested in.
   // Each value in a LANDMARKS* list corresponds to a point on the mesh for that facial area.
-  private static final int[] LANDMARKS_LCHEEK = {345, 340, 346, 347, 330, 266, 423, 426, 436, 427, 411, 376, 352, 280, 425};
-  private static final int[] LANDMARKS_FOREHEAD = {103, 67,109, 10, 338, 297, 332, 334, 296, 336, 107, 66, 105, 104, 69, 108, 151, 337, 299, 333};
-  private static final int[] LANDMARKS_RCHEEK = {116, 111, 117, 118, 101, 203, 206, 216, 207, 205, 187, 147, 123, 50};
+  public static final int[] LANDMARKS_LCHEEK = {345, 340, 346, 347, 330, 266, 423, 426, 436, 427, 411, 376, 352, 280, 425};
+  public static final int[] LANDMARKS_FOREHEAD = {103, 67,109, 10, 338, 297, 332, 334, 296, 336, 107, 66, 105, 104, 69, 108, 151, 337, 299, 333};
+  public static final int[] LANDMARKS_RCHEEK = {116, 111, 117, 118, 101, 203, 206, 216, 207, 205, 187, 147, 123, 50};
 
   private int program;
   private int positionHandle;
@@ -205,7 +205,7 @@ public class FaceMeshResultGlRenderer implements ResultGlRenderer<FaceMeshResult
     showVertex(vertex);
   }
 
-  private List<ConvexHull.Point> calculateContour(List<NormalizedLandmark> faceLandmarkList,
+  public static List<ConvexHull.Point> calculateContour(List<NormalizedLandmark> faceLandmarkList,
                                 int[] connection_landmarks) {
     List<ConvexHull.Point> points = new ArrayList<>();
 
