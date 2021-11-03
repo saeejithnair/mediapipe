@@ -40,6 +40,7 @@ import com.google.mediapipe.solutions.facemesh.FaceMesh;
 import com.google.mediapipe.solutions.facemesh.FaceMeshOptions;
 import com.google.mediapipe.solutions.facemesh.FaceMeshResult;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
@@ -339,6 +340,10 @@ public class MainActivity extends AppCompatActivity {
 
     graph.getLegendRenderer().setVisible(true);
     graph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.TOP);
+
+    GridLabelRenderer gridLabel = graph.getGridLabelRenderer();
+    gridLabel.setVerticalAxisTitle("Mean Intensity (Green)");
+    gridLabel.setHorizontalAxisTitle("Frame Number");
 
 
     // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
