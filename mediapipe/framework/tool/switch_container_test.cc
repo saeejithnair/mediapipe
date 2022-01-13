@@ -15,7 +15,6 @@
 #include "absl/strings/str_replace.h"
 #include "mediapipe/framework/calculator.pb.h"
 #include "mediapipe/framework/calculator_framework.h"
-#include "mediapipe/framework/deps/message_matchers.h"
 #include "mediapipe/framework/port/gmock.h"
 #include "mediapipe/framework/port/gtest.h"
 #include "mediapipe/framework/port/logging.h"
@@ -150,12 +149,13 @@ void RunTestContainer(CalculatorGraphConfig supergraph,
   const int packet_count = 10;
   // Send int value packets at {10K, 20K, 30K, ..., 100K}.
   for (uint64 t = 1; t <= packet_count; ++t) {
-    MP_EXPECT_OK(graph.AddPacketToInputStream(
-        "foo", MakePacket<int>(t).At(Timestamp(t * 10000))));
     if (send_bounds) {
       MP_EXPECT_OK(graph.AddPacketToInputStream(
           "enable", MakePacket<bool>(true).At(Timestamp(t * 10000))));
+      MP_ASSERT_OK(graph.WaitUntilIdle());
     }
+    MP_EXPECT_OK(graph.AddPacketToInputStream(
+        "foo", MakePacket<int>(t).At(Timestamp(t * 10000))));
     MP_ASSERT_OK(graph.WaitUntilIdle());
     // The inputs are sent to the input stream "foo", they should pass through.
     EXPECT_EQ(out_foo.size(), t);
@@ -175,12 +175,13 @@ void RunTestContainer(CalculatorGraphConfig supergraph,
 
   // Send int value packets at {110K, 120K, ..., 200K}.
   for (uint64 t = 11; t <= packet_count * 2; ++t) {
-    MP_EXPECT_OK(graph.AddPacketToInputStream(
-        "foo", MakePacket<int>(t).At(Timestamp(t * 10000))));
     if (send_bounds) {
       MP_EXPECT_OK(graph.AddPacketToInputStream(
           "enable", MakePacket<bool>(false).At(Timestamp(t * 10000))));
+      MP_ASSERT_OK(graph.WaitUntilIdle());
     }
+    MP_EXPECT_OK(graph.AddPacketToInputStream(
+        "foo", MakePacket<int>(t).At(Timestamp(t * 10000))));
     MP_ASSERT_OK(graph.WaitUntilIdle());
     // The inputs are sent to the input stream "foo", they should pass through.
     EXPECT_EQ(out_foo.size(), t);

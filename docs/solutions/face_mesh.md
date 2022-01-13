@@ -487,12 +487,9 @@ camera.start();
 ### Android Solution API
 
 Please first follow general
-[instructions](../getting_started/android_solutions.md#integrate-mediapipe-android-solutions-api)
-to add MediaPipe Gradle dependencies, then try the Face Mesh Solution API in the
-companion
-[example Android Studio project](https://github.com/google/mediapipe/tree/master/mediapipe/examples/android/solutions/facemesh)
-following
-[these instructions](../getting_started/android_solutions.md#build-solution-example-apps-in-android-studio)
+[instructions](../getting_started/android_solutions.md) to add MediaPipe Gradle
+dependencies and try the Android Solution API in the companion
+[example Android Studio project](https://github.com/google/mediapipe/tree/master/mediapipe/examples/android/solutions/facemesh),
 and learn more in the usage example below.
 
 Supported configuration options:
@@ -612,9 +609,9 @@ ActivityResultLauncher<Intent> imageGetter =
             }
           }
         });
-Intent gallery = new Intent(
-    Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
-imageGetter.launch(gallery);
+Intent pickImageIntent = new Intent(Intent.ACTION_PICK);
+pickImageIntent.setDataAndType(MediaStore.Images.Media.INTERNAL_CONTENT_URI, "image/*");
+imageGetter.launch(pickImageIntent);
 ```
 
 #### Video Input
@@ -678,9 +675,9 @@ ActivityResultLauncher<Intent> videoGetter =
             }
           }
         });
-Intent gallery =
-    new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.INTERNAL_CONTENT_URI);
-videoGetter.launch(gallery);
+Intent pickVideoIntent = new Intent(Intent.ACTION_PICK);
+pickVideoIntent.setDataAndType(MediaStore.Video.Media.INTERNAL_CONTENT_URI, "video/*");
+videoGetter.launch(pickVideoIntent);
 ```
 
 ## Example Apps

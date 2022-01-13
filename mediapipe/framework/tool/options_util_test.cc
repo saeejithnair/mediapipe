@@ -17,7 +17,7 @@
 
 #include "absl/strings/string_view.h"
 #include "mediapipe/framework/calculator_framework.h"
-#include "mediapipe/framework/deps/message_matchers.h"
+#include "mediapipe/framework/port/gmock.h"
 #include "mediapipe/framework/port/gtest.h"
 #include "mediapipe/framework/port/parse_text_proto.h"
 #include "mediapipe/framework/port/status_matchers.h"
@@ -137,7 +137,6 @@ TEST_F(OptionsUtilTest, CopyLiteralOptions) {
   NightLightCalculatorOptions expected_node_options;
   expected_node_options.add_num_lights(8);
   expected_node.add_node_options()->PackFrom(expected_node_options);
-  *expected_node.add_option_value() = "num_lights:options/chain_length";
   EXPECT_THAT(actual_node, EqualsProto(expected_node));
 
   MP_EXPECT_OK(graph.StartRun({}));

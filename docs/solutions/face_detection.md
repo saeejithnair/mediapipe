@@ -218,13 +218,12 @@ camera.start();
 ### Android Solution API
 
 Please first follow general
-[instructions](../getting_started/android_solutions.md#integrate-mediapipe-android-solutions-api)
-to add MediaPipe Gradle dependencies, then try the Face Detection Solution API
-in the companion
-[example Android Studio project](https://github.com/google/mediapipe/tree/master/mediapipe/examples/android/solutions/facedetection)
-following
-[these instructions](../getting_started/android_solutions.md#build-solution-example-apps-in-android-studio)
+[instructions](../getting_started/android_solutions.md) to add MediaPipe Gradle
+dependencies and try the Android Solution API in the companion
+[example Android Studio project](https://github.com/google/mediapipe/tree/master/mediapipe/examples/android/solutions/facedetection),
 and learn more in the usage example below.
+
+Supported configuration options:
 
 *   [staticImageMode](#static_image_mode)
 *   [modelSelection](#model_selection)
@@ -257,8 +256,15 @@ glSurfaceView.setSolutionResultRenderer(new FaceDetectionResultGlRenderer());
 glSurfaceView.setRenderInputImage(true);
 faceDetection.setResultListener(
     faceDetectionResult -> {
+      if (faceDetectionResult.multiFaceDetections().isEmpty()) {
+        return;
+      }
       RelativeKeypoint noseTip =
-          FaceDetection.getFaceKeypoint(result, 0, FaceKeypoint.NOSE_TIP);
+          faceDetectionResult
+              .multiFaceDetections()
+              .get(0)
+              .getLocationData()
+              .getRelativeKeypoints(FaceKeypoint.NOSE_TIP);
       Log.i(
           TAG,
           String.format(
@@ -297,10 +303,17 @@ FaceDetection faceDetection = new FaceDetection(this, faceDetectionOptions);
 FaceDetectionResultImageView imageView = new FaceDetectionResultImageView(this);
 faceDetection.setResultListener(
     faceDetectionResult -> {
+      if (faceDetectionResult.multiFaceDetections().isEmpty()) {
+        return;
+      }
       int width = faceDetectionResult.inputBitmap().getWidth();
       int height = faceDetectionResult.inputBitmap().getHeight();
       RelativeKeypoint noseTip =
-          FaceDetection.getFaceKeypoint(result, 0, FaceKeypoint.NOSE_TIP);
+          faceDetectionResult
+              .multiFaceDetections()
+              .get(0)
+              .getLocationData()
+              .getRelativeKeypoints(FaceKeypoint.NOSE_TIP);
       Log.i(
           TAG,
           String.format(
@@ -334,9 +347,9 @@ ActivityResultLauncher<Intent> imageGetter =
             }
           }
         });
-Intent gallery = new Intent(
-    Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
-imageGetter.launch(gallery);
+Intent pickImageIntent = new Intent(Intent.ACTION_PICK);
+pickImageIntent.setDataAndType(MediaStore.Images.Media.INTERNAL_CONTENT_URI, "image/*");
+imageGetter.launch(pickImageIntent);
 ```
 
 #### Video Input
@@ -368,8 +381,15 @@ glSurfaceView.setRenderInputImage(true);
 
 faceDetection.setResultListener(
     faceDetectionResult -> {
+      if (faceDetectionResult.multiFaceDetections().isEmpty()) {
+        return;
+      }
       RelativeKeypoint noseTip =
-        FaceDetection.getFaceKeypoint(result, 0, FaceKeypoint.NOSE_TIP);
+          faceDetectionResult
+              .multiFaceDetections()
+              .get(0)
+              .getLocationData()
+              .getRelativeKeypoints(FaceKeypoint.NOSE_TIP);
       Log.i(
           TAG,
           String.format(
@@ -398,9 +418,9 @@ ActivityResultLauncher<Intent> videoGetter =
             }
           }
         });
-Intent gallery =
-    new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.INTERNAL_CONTENT_URI);
-videoGetter.launch(gallery);
+Intent pickVideoIntent = new Intent(Intent.ACTION_PICK);
+pickVideoIntent.setDataAndType(MediaStore.Video.Media.INTERNAL_CONTENT_URI, "video/*");
+videoGetter.launch(pickVideoIntent);
 ```
 
 ## Example Apps

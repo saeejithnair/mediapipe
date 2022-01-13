@@ -22,6 +22,7 @@
 #include "mediapipe/framework/formats/detection.pb.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/location_data.pb.h"
+#include "mediapipe/framework/packet.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
 #include "mediapipe/framework/port/status_builder.h"
@@ -57,6 +58,8 @@ constexpr float kFieldOfView = 60;
 constexpr char kStateCache[] = "STATE_CACHE";
 // Tolerance for zooming out recentering.
 constexpr float kPixelTolerance = 3;
+// Returns 'true' when camera is moving (pan/tilt/zoom) & 'false' for no motion.
+constexpr char kCameraActive[] = "CAMERA_ACTIVE";
 
 namespace mediapipe {
 namespace autoflip {
@@ -180,6 +183,9 @@ absl::Status ContentZoomingCalculator::GetContract(
   }
   if (cc->InputSidePackets().HasTag(kStateCache)) {
     cc->InputSidePackets().Tag(kStateCache).Set<StateCacheType*>();
+  }
+  if (cc->Outputs().HasTag(kCameraActive)) {
+    cc->Outputs().Tag(kCameraActive).Set<bool>();
   }
   return absl::OkStatus();
 }
@@ -648,6 +654,16 @@ absl::Status ContentZoomingCalculator::Process(
     path_solver_pan_->ClearHistory();
     path_solver_tilt_->ClearHistory();
     path_solver_zoom_->ClearHistory();
+  }
+  const bool camera_active =
+      is_animating || pan_state || tilt_state || zoom_state;
+  // Waiting for first rect before setting any value of the camera active flag
+  // so we avoid setting it to false during initialization.
+  if (cc->Outputs().HasTag(kCameraActive) &&
+      first_rect_timestamp_ != Timestamp::Unset()) {
+    cc->Outputs()
+        .Tag(kCameraActive)
+        .AddPacket(MakePacket<bool>(camera_active).At(cc->InputTimestamp()));
   }
 
   // Compute smoothed zoom camera path.
