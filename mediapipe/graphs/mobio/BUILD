@@ -9,7 +9,6 @@ cc_library(
     hdrs = ["constants.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//mediapipe/graphs/mobio:constants",
         "//mediapipe/framework/port:opencv_core",
         "//mediapipe/framework/port:opencv_imgproc",
     ],

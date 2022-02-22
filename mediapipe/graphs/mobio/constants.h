@@ -4,10 +4,18 @@
 #include <memory>
 #include "mediapipe/framework/port/opencv_core_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
+#include "mediapipe/framework/formats/landmark.pb.h"
 
 namespace mobio {
 
-typedef std::vector<cv::Point2d> Points;
+// typedef struct Point {
+//     uint32_t x;
+//     uint32_t y;
+// } Point;
+
+typedef cv::Point Point;
+typedef std::vector<Point> Points;
+typedef std::vector<mediapipe::Landmark> Contour;
 typedef cv::Vec3d Intensity;
 enum Color {
     kColorRed = 0,

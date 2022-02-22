@@ -38,7 +38,7 @@ class MobioContourCalculator : public CalculatorBase {
                 const int img_width, const int img_height,
                 const NormalizedLandmarkList& landmark_list, 
                 const std::array<int, N>& trackers,
-                mobio::Points* contour_points);
+                std::unique_ptr<LandmarkList>& contour_points);
 
 };
 
@@ -48,9 +48,10 @@ absl::Status MobioContourCalculator::GetContract(CalculatorContract* cc) {
   // Validate input/output stream tags connected to node.
   RET_CHECK(cc->Inputs().HasTag(kImageTag));
   RET_CHECK(cc->Inputs().HasTag(kLandmarksTag));
+  RET_CHECK(cc->InputSidePackets().HasTag(kNumFacesTag));
   RET_CHECK(cc->Outputs().HasTag(kContourIntensityForeheadTag));
-  RET_CHECK(cc->Outputs().HasTag(kContourIntensityLCheekTag));
-  RET_CHECK(cc->Outputs().HasTag(kContourIntensityRCheekTag));
+  // RET_CHECK(cc->Outputs().HasTag(kContourIntensityLCheekTag));
+  // RET_CHECK(cc->Outputs().HasTag(kContourIntensityRCheekTag));
   
   // Set type for input stream packets.
   cc->Inputs().Tag(kImageTag).Set<ImageFrame>();
@@ -58,12 +59,12 @@ absl::Status MobioContourCalculator::GetContract(CalculatorContract* cc) {
 
   // Set type for num faces side packet.
   auto& side_inputs = cc->InputSidePackets();
-  side_inputs.Tag(kContourIntensityForeheadTag).Set<int>();
+  side_inputs.Tag(kNumFacesTag).Set<int>();
 
   // Set type for output stream packets.
-  cc->Outputs().Tag(kContourIntensityForeheadTag).Set<mobio::Points>();
-  cc->Outputs().Tag(kContourIntensityLCheekTag).Set<mobio::Points>();
-  cc->Outputs().Tag(kContourIntensityRCheekTag).Set<mobio::Points>();
+  cc->Outputs().Tag(kContourIntensityForeheadTag).Set<LandmarkList>();
+  // cc->Outputs().Tag(kContourIntensityLCheekTag).Set<mobio::Points>();
+  // cc->Outputs().Tag(kContourIntensityRCheekTag).Set<mobio::Points>();
 
   return absl::OkStatus();
 }
@@ -80,32 +81,28 @@ absl::Status MobioContourCalculator::ComputeContourFromTrackers(
     const int img_width, const int img_height,
     const NormalizedLandmarkList& landmark_list, 
     const std::array<int, N>& trackers,
-    mobio::Points* contour_points) {
+    std::unique_ptr<LandmarkList>& contour_points) {
     
-    RET_CHECK(contour_points != NULL);
-
-    // Validate that contour_points is empty (size equals 0). 
-    // We expect 1:1 mapping from tracker index to tracker point.
-    RET_CHECK(!contour_points->size());
-    
-    // Allocate space to hold points for all trackers.
-    contour_points->reserve(N);
-
     for (int i=0; i<N; ++i) {
       const auto& landmark = landmark_list.landmark(trackers[i]);
-      contour_points->emplace_back(cv::Point2d(
-                                    landmark.x()*img_width, 
-                                    landmark.y()*img_height));
+      int px = int(landmark.x()*img_width);
+      int py = int(landmark.y()*img_height);
+
+      Landmark* contour_point = contour_points->add_landmark();
+      contour_point->set_x(px);
+      contour_point->set_y(py);
     }
 
     return absl::OkStatus();
 }
 
 absl::Status MobioContourCalculator::Process(CalculatorContext* cc) {
-  if (cc->Inputs().Tag(kImageTag).IsEmpty()) {
-    return absl::OkStatus();
-  }
-  if (cc->Inputs().Tag(kLandmarksTag).IsEmpty()) {
+  LOG(INFO) << "In MobioContourCalculator Process()";
+  if (cc->Inputs().Tag(kImageTag).IsEmpty() || cc->Inputs().Tag(kLandmarksTag).IsEmpty()) {
+    LOG(INFO) << "Input tag is empty";
+
+    cc->Outputs().Tag(kContourIntensityForeheadTag).SetNextTimestampBound(
+              cc->InputTimestamp().NextAllowedInStream());
     return absl::OkStatus();
   }
 
@@ -123,33 +120,46 @@ absl::Status MobioContourCalculator::Process(CalculatorContext* cc) {
   const auto& landmark_list = landmark_lists.front();
 
   // Create vectors for storing tracker points for each face region of interest.
-  mobio::Points contour_points_intensity_forehead;
-  mobio::Points contour_points_intensity_lcheek;
-  mobio::Points contour_points_intensity_rcheek;
-
+  // mobio::Points contour_points_intensity_forehead;
+  // mobio::Points contour_points_intensity_lcheek;
+  // mobio::Points contour_points_intensity_rcheek;
+  auto contour_points_intensity_forehead_ptr = absl::make_unique<LandmarkList>();
   // Compute tracker points for each face region of interest.
   RET_CHECK_OK(ComputeContourFromTrackers(
-                input_frame_width, input_frame_height,
-                landmark_list, 
-                mobio::kTrackerIdxsIntensityForehead, 
-                &contour_points_intensity_forehead));
+                  input_frame_width, input_frame_height,
+                  landmark_list, 
+                  mobio::kTrackerIdxsIntensityForehead,
+                  contour_points_intensity_forehead_ptr));
+  LOG(INFO) << "Computed forehead contour";
 
-  RET_CHECK_OK(ComputeContourFromTrackers(
-                input_frame_width, input_frame_height,
-                landmark_list, 
-                mobio::kTrackerIdxsIntensityLeftCheek, 
-                &contour_points_intensity_lcheek));
+  // RET_CHECK_OK(ComputeContourFromTrackers(
+  //               input_frame_width, input_frame_height,
+  //               landmark_list, 
+  //               mobio::kTrackerIdxsIntensityLeftCheek, 
+  //               &contour_points_intensity_lcheek)) << "Error encountered while computing contour from left cheek trackers.";
+  // LOG(INFO) << "Computed lcheek contour";
 
-  RET_CHECK_OK(ComputeContourFromTrackers(
-                input_frame_width, input_frame_height,
-                landmark_list, 
-                mobio::kTrackerIdxsIntensityRightCheek, 
-                &contour_points_intensity_rcheek));
+  // RET_CHECK_OK(ComputeContourFromTrackers(
+  //               input_frame_width, input_frame_height,
+  //               landmark_list, 
+  //               mobio::kTrackerIdxsIntensityRightCheek, 
+  //               &contour_points_intensity_rcheek)) << "Error encountered while computing contour from right cheek trackers.";
+  // LOG(INFO) << "Computed rcheek contour";
+
+  // for (auto& point: contour_points_intensity_forehead) {
+  //   LOG(INFO) << "x: " << point.x << ", y: " << point.y;
+  // }
+
+
 
   // Publish outputs.
-  cc->Outputs().Tag(kContourIntensityForeheadTag).Add(&contour_points_intensity_forehead, cc->InputTimestamp());
-  cc->Outputs().Tag(kContourIntensityLCheekTag).Add(&contour_points_intensity_lcheek, cc->InputTimestamp());
-  cc->Outputs().Tag(kContourIntensityRCheekTag).Add(&contour_points_intensity_rcheek, cc->InputTimestamp());
+  auto& contour_output = cc->Outputs().Tag(kContourIntensityForeheadTag);
+  const auto& input_timestamp = cc->InputTimestamp();
+  contour_output.Add(contour_points_intensity_forehead_ptr.release(), input_timestamp);
+  // cc->Outputs().Tag(kContourIntensityLCheekTag).Add(&contour_points_intensity_lcheek, cc->InputTimestamp());
+  // cc->Outputs().Tag(kContourIntensityRCheekTag).Add(&contour_points_intensity_rcheek, cc->InputTimestamp());
+
+  LOG(INFO) << "Published contour outputs";
 
   return absl::OkStatus();
 }
