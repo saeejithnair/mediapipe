@@ -2,165 +2,33 @@
 #define MEDIAPIPE_GRPAHS_MOBIO_CONSTANTS_H_
 
 #include <memory>
+#include "mediapipe/framework/port/opencv_core_inc.h"
+#include "mediapipe/framework/port/opencv_imgproc_inc.h"
 
 namespace mobio {
 
-constexpr int kLandmarksForehead[] = {
-    127,
-    34,
-    162,
-    21,
-    139,
-    143,
-    35,
-    156,
-    71,
-    54,
-    103,
-    68,
-    70,
-    124,
-    226,
-    130,
-    113,
-    46,
-    63,
-    104,
-    67,
-    69,
-    105,
-    53,
-    52,
-    66,
-    108,
-    109,
-    10,
-    151,
-    107,
-    9,
-    55,
-    65,
-    8,
-    285,
-    336,
-    337,
-    338,
-    297,
-    299,
-    296,
-    295,
-    282,
-    334,
-    333,
-    332,
-    284,
-    298,
-    293,
-    283,
-    276,
-    300,
-    301,
-    251,
-    389,
-    368,
-    383,
-    353,
-    356,
-    264,
-    372,
-    265,
+typedef std::vector<cv::Point2d> Points;
+typedef cv::Vec3d Intensity;
+enum Color {
+    kColorRed = 0,
+    kColorGreen = 1,
+    kColorBlue = 2,
 };
 
-constexpr int kLandmarksRightCheek[] = {
-    454,
-    447,
-    345,
-    346,
-    347,
-    348,
-    349,
-    350,
-    357,
-    343,
-    437,
-    420,
-    279,
-    358,
-    423,
-    426,
-    436,
-    432,
-    430,
-    394,
-    379,
-    365,
-    397,
-    288,
-    361,
-    323,
-    366,
-    352,
-    280,
-    330,
-    425,
-    411,
-    376,
-    416,
-    367,
-    435,
-    401,
-};
+// Indices used for tracking landmark points in tri-region contours.
+// These points were empirically selected to maximize coverage of each region
+// while minimizing capture of non-smooth, non-skin artifacts 
+// (eyebrows, facial hair, hairline, nose bridge, etc.)
+constexpr std::array kTrackerIdxsIntensityForehead {103, 67,109, 10, 338, 297, 332, 334, 296, 336, 107, 66, 105, 104, 69, 108, 151, 337, 299, 333};
+constexpr std::array kTrackerIdxsIntensityRightCheek {116, 111, 117, 118, 101, 203, 206, 216, 207, 205, 187, 147, 123, 50};
+constexpr std::array kTrackerIdxsIntensityLeftCheek {345, 340, 346, 347, 330, 266, 423, 426, 436, 427, 411, 376, 352, 280, 425};
 
-constexpr int kLandmarksLeftCheek[] = {
-    234,
-    227,
-    116,
-    117,
-    118,
-    119,
-    120,
-    121,
-    128,
-    114,
-    217,
-    198,
-    49,
-    129,
-    203,
-    206,
-    216,
-    214,
-    135,
-    136,
-    172,
-    58,
-    132,
-    93,
-    47,
-    126,
-    209,
-    142,
-    100,
-    101,
-    36,
-    207,
-    205,
-    50,
-    123,
-    137,
-    177,
-    147,
-    177,
-    213,
-    215,
-    192,
-    138,
-};
+// Indices used for tracking the radius of tri-region areas.
+constexpr std::array kTrackerIdxsRadiusForehead {104, 69, 108, 151, 337, 299, 333};
+constexpr std::array kTrackerIdxsRadiusRightCheek {255, 261, 340, 352, 411, 427, 436};
+constexpr std::array kTrackerIdxsRadiusLeftCheek {25, 31, 111, 123, 187, 207, 216};
 
-constexpr int kTrackersForehead[] = {104, 69, 108, 151, 337, 299, 333};
-constexpr int kTrackersRightCheek[] = {255, 261, 340, 352, 411, 427, 436};
-constexpr int kTrackersLeftCheek[] = {25, 31, 111, 123, 187, 207, 216};
-
+// TODO(snair)
 constexpr int kFaceLandmarkIdxExtremeLeft = 234;
 constexpr int kFaceLandmarkIdxExtremeRight = 454;
 }

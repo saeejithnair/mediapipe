@@ -60,9 +60,10 @@ node {
 
 # Subgraph that performs facial analysis.
 node {
-  calculator: "MobioResultProcessorCalculator"
+  calculator: "MobioResultProcessor"
   input_stream: "IMAGE:throttled_input_video"
   input_stream: "LANDMARKS:multi_face_landmarks"
+  input_side_packet: "NUM_FACES:num_faces"
   # input_stream: "MOBIO_NORM_RECTS:face_rects_from_landmarks"
   # input_stream: "MOBIO_DETECTIONS:face_detections"
   output_stream: "IMAGE:mobio_output_video"

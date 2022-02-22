@@ -1,0 +1,62 @@
+# MediaPipe graph to execute facial analysis.
+# EXAMPLE:
+#   node {
+#     calculator: "MobioResultProcessor"
+#     input_stream: "IMAGE:image"
+#     input_stream: "LANDMARKS:multi_face_landmarks"
+#     output_stream: "INTENSITY_FOREHEAD:intensity_forehead"
+#     output_stream: "INTENSITY_LEFT_CHEEK:intensity_left_cheek"
+#     output_stream: "INTENSITY_RIGHT_CHEEK:intensity_right_cheek"
+#   }
+
+type: "MobioResultProcessor"
+
+# CPU image. (ImageFrame)
+input_stream: "IMAGE:image"
+
+# Multi face landmarks
+input_stream: "LANDMARKS:multi_face_landmarks"
+
+# Max number of faces to detect/track. (int)
+input_side_packet: "NUM_FACES:num_faces"
+
+# Mean intensity of forehead region. (mobio::Intensity)
+output_stream: "INTENSITY_FOREHEAD:intensity_forehead"
+
+# Mean intensity of left cheek region. (mobio::Intensity)
+output_stream: "INTENSITY_LEFT_CHEEK:intensity_left_cheek"
+
+# Mean intensity of right cheek region. (mobio::Intensity)
+output_stream: "INTENSITY_RIGHT_CHEEK:intensity_right_cheek"
+
+node {
+  calculator: "MobioContourCalculator"
+  input_side_packet: "NUM_FACES:num_faces"
+  input_stream: "IMAGE:image"
+  input_stream: "LANDMARKS:multi_face_landmarks"
+  output_stream: "CONTOUR_INTENSITY_FOREHEAD:contour_intensity_forehead"
+  output_stream: "CONTOUR_INTENSITY_LCHEEK:contour_intensity_lcheek"
+  output_stream: "CONTOUR_INTENSITY_RCHEEK:contour_intensity_rcheek"
+}
+
+node {
+  calculator: "MobioIntensityCalculator"
+  input_stream: "IMAGE:image"
+  input_stream: "CONTOUR:contour_intensity_forehead"
+  output_stream: "INTENSITY:intensity_forehead"
+}
+
+node {
+  calculator: "MobioIntensityCalculator"
+  input_stream: "IMAGE:image"
+  input_stream: "CONTOUR:contour_intensity_lcheek"
+  output_stream: "INTENSITY:intensity_left_cheek"
+}
+
+node {
+  calculator: "MobioIntensityCalculator"
+  input_stream: "IMAGE:image"
+  input_stream: "CONTOUR:contour_intensity_rcheek"
+  output_stream: "INTENSITY:intensity_right_cheek"
+}
+
