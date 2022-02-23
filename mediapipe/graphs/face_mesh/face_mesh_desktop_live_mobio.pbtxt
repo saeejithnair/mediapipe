@@ -65,8 +65,8 @@ node {
   input_stream: "LANDMARKS:multi_face_landmarks"
   input_side_packet: "NUM_FACES:num_faces"
   output_stream: "INTENSITY_FOREHEAD:intensity_forehead"
-  # output_stream: "INTENSITY_LEFT_CHEEK:intensity_left_cheek"
-  # output_stream: "INTENSITY_RIGHT_CHEEK:intensity_right_cheek"
+  output_stream: "INTENSITY_LEFT_CHEEK:intensity_left_cheek"
+  output_stream: "INTENSITY_RIGHT_CHEEK:intensity_right_cheek"
 }
 
 

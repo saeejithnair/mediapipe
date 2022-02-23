@@ -18,7 +18,7 @@ namespace mediapipe {
 namespace {
 
 constexpr char kImageTag[] = "IMAGE";
-constexpr char kContourTag[] = "CONTOUR_INTENSITY_FOREHEAD";
+constexpr char kContourTag[] = "CONTOUR";
 constexpr char kIntensityTag[] = "INTENSITY";
 
 constexpr uint8_t kColourInsideContour = 255;
@@ -44,6 +44,13 @@ class MobioIntensityCalculator : public CalculatorBase {
                       const cv::Mat& image,
                       const cv::Mat& mask,
                       std::unique_ptr<mobio::Intensity>& mean_intensity);
+  
+  // Checks to see if an ROI (rect) is within the image.
+  bool CheckRoiWithinImage(const cv::Mat& image,const cv::Rect& rect);
+
+  // Updates the timestamp bound for registered output tag name.
+  // Always returns absl::StatusOk(). 
+  absl::Status UpdateTimestampBoundAndReturnOk(CalculatorContext* cc);
 
 };
 
@@ -57,7 +64,7 @@ absl::Status MobioIntensityCalculator::GetContract(CalculatorContract* cc) {
   
   // Set type for input stream packets.
   cc->Inputs().Tag(kImageTag).Set<ImageFrame>();
-  cc->Inputs().Tag(kContourTag).Set<LandmarkList>();
+  cc->Inputs().Tag(kContourTag).Set<mobio::Points>();
 
   // Set type for output stream packets.
   cc->Outputs().Tag(kIntensityTag).Set<mobio::Intensity>();
@@ -73,7 +80,7 @@ absl::Status MobioIntensityCalculator::Open(CalculatorContext* cc) {
 
 absl::Status MobioIntensityCalculator::TranslatePoints(
                 mobio::Points* points, const mobio::Point& translation_offset) {
-  RET_CHECK(points != nullptr) << "Failed nullptr check for points container.";
+  RET_CHECK(points != nullptr) << "Received nullptr for points container.";
 
   for (auto& point: *points) {
     point += translation_offset;
@@ -95,39 +102,34 @@ absl::Status MobioIntensityCalculator::ComputeMeanIntensityContour(
   return absl::OkStatus();
 }
 
-absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
-  LOG(INFO) << "In MobioIntensityCalculator Process()";
-  if (cc->Inputs().Tag(kImageTag).IsEmpty()) {
-    return absl::OkStatus();
-  }
-  if (cc->Inputs().Tag(kContourTag).IsEmpty()) {
-    return absl::OkStatus();
-  }
+bool MobioIntensityCalculator::CheckRoiWithinImage(const cv::Mat& image,
+                                                    const cv::Rect& rect) {
+  
+  return (rect & cv::Rect(0, 0, image.cols, image.rows)) == rect;
+}
 
-  LOG(INFO) << "Getting input frame";
+absl::Status MobioIntensityCalculator::UpdateTimestampBoundAndReturnOk(CalculatorContext* cc) {
+  cc->Outputs().Tag(kIntensityTag).SetNextTimestampBound(
+                  cc->InputTimestamp().NextAllowedInStream());
+
+  return absl::OkStatus();
+}
+
+absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
+  if (cc->Inputs().Tag(kImageTag).IsEmpty() ||
+      cc->Inputs().Tag(kContourTag).IsEmpty()) {
+    LOG(WARNING) << "Missing inputs.";
+    
+    return UpdateTimestampBoundAndReturnOk(cc);
+  }
 
   const auto& input_frame = cc->Inputs().Tag(kImageTag).Get<ImageFrame>();
   const auto input_frame_width = input_frame.Width();
   const auto input_frame_height = input_frame.Height();
 
-  LOG(INFO) << "Getting input contour";
-
   // Get vector of points enclosing contour region.
-  const LandmarkList contour_landmark_points = cc->Inputs().Tag(kContourTag).Get<LandmarkList>();
+  mobio::Points contour_points = cc->Inputs().Tag(kContourTag).Get<mobio::Points>();
 
-  mobio::Points contour_points;
-  contour_points.reserve(contour_landmark_points.landmark_size());
-  for (int i=0; i<contour_landmark_points.landmark_size(); ++i) {
-    const auto& landmark_point = contour_landmark_points.landmark(i);
-    contour_points.emplace_back(mobio::Point(landmark_point.x(), landmark_point.y()));
-  }
-
-  LOG(INFO) << "Logging contour points.";
-  for (auto& point:contour_points) {
-    LOG(INFO) << "x: " << point.x << ", y: " << point.y;
-  }
-
-  LOG(INFO) << "Drawing convex hull";
   // Compute convex hull for each region's contour.
   // This is basically a more tightly wrapped contour.
   mobio::Points hull_points;
@@ -139,12 +141,18 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   // Crop bounded rectangle from input_frame (minimizes computational cost 
   // later on since we're searching over a smaller area).
   const cv::Mat input_frame_mat = formats::MatView(&input_frame);
+
   const cv::Mat cropped_input_region = input_frame_mat(bounded_rect);
 
   // Translate hull points into bounded rect frame 
   // (previously in input image frame).
   const mobio::Point translation_offset(-bounded_rect.x, -bounded_rect.y);
-  RET_CHECK_OK(TranslatePoints(&hull_points, translation_offset)) << "Error encountered while translating hull points.";;
+  auto status = TranslatePoints(&hull_points, translation_offset);
+  if (!status.ok()) {
+    LOG(WARNING) << "Error encountered while translating hull points. "
+                 << status;
+    return UpdateTimestampBoundAndReturnOk(cc);
+  }
 
   // Create a test matrix of size cropped_input_region and fill it with 
   // value of kColourOutsideContour. 
@@ -158,12 +166,17 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   
   // Calculate mean intensity of pixels within contour.
   auto mean_intensity_ptr = absl::make_unique<mobio::Intensity>();
-  ComputeMeanIntensityContour(cropped_input_region, contour_mask_mat, mean_intensity_ptr);
+  status = ComputeMeanIntensityContour(cropped_input_region, 
+                                            contour_mask_mat, 
+                                            mean_intensity_ptr);
+  if (!status.ok()) {
+    LOG(WARNING) << "Error encountered while computing mean intensity of contour. "
+                 << status;
+    return UpdateTimestampBoundAndReturnOk(cc);
+  }
 
   // Publish outputs.
   cc->Outputs().Tag(kIntensityTag).Add(mean_intensity_ptr.release(), cc->InputTimestamp());
-  LOG(INFO) << "Published intensity output";
-
 
   return absl::OkStatus();
 }
