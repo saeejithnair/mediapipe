@@ -10,6 +10,7 @@
 #include "mediapipe/framework/port/logging.h"
 #include "mediapipe/framework/port/opencv_core_inc.h"
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
+#include "mediapipe/framework/port/opencv_highgui_inc.h"
 
 #include "mediapipe/graphs/mobio/constants.h"
 
@@ -19,6 +20,7 @@ namespace {
 
 constexpr char kImageTag[] = "IMAGE";
 constexpr char kContourTag[] = "CONTOUR";
+constexpr char kContourNameTag[] = "CONTOUR_NAME";
 constexpr char kIntensityTag[] = "INTENSITY";
 
 constexpr uint8_t kColourInsideContour = 255;
@@ -51,6 +53,9 @@ class MobioIntensityCalculator : public CalculatorBase {
   // Always returns absl::StatusOk(). 
   absl::Status SendDummyOutputAndReturnOk(CalculatorContext* cc);
 
+  // Contour name (used as identifier for plotting results to namedWindow).
+  std::string contour_name_;
+
 };
 
 REGISTER_CALCULATOR(MobioIntensityCalculator);
@@ -59,11 +64,13 @@ absl::Status MobioIntensityCalculator::GetContract(CalculatorContract* cc) {
   // Validate input/output stream tags connected to node.
   RET_CHECK(cc->Inputs().HasTag(kImageTag));
   RET_CHECK(cc->Inputs().HasTag(kContourTag));
+  RET_CHECK(cc->InputSidePackets().HasTag(kContourNameTag));
   RET_CHECK(cc->Outputs().HasTag(kIntensityTag));
   
   // Set type for input stream packets.
   cc->Inputs().Tag(kImageTag).Set<ImageFrame>();
   cc->Inputs().Tag(kContourTag).Set<mobio::Points>();
+  cc->InputSidePackets().Tag(kContourNameTag).Set<std::string>();
 
   // Set type for output stream packets.
   cc->Outputs().Tag(kIntensityTag).Set<mobio::Intensity>();
@@ -73,6 +80,10 @@ absl::Status MobioIntensityCalculator::GetContract(CalculatorContract* cc) {
 
 absl::Status MobioIntensityCalculator::Open(CalculatorContext* cc) {
   cc->SetOffset(TimestampDiff(0));
+
+
+  contour_name_ = cc->InputSidePackets().Tag(kContourNameTag).Get<std::string>();
+  cv::namedWindow(contour_name_, /*flags=WINDOW_AUTOSIZE*/ 0);
 
   return absl::OkStatus();
 }
@@ -143,6 +154,21 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   // Crop bounded rectangle from input_frame (minimizes computational cost 
   // later on since we're searching over a smaller area).
   const cv::Mat input_frame_mat = formats::MatView(&input_frame);
+
+
+  // Create a test matrix of size cropped_input_region and fill it with 
+  // value of kColourOutsideContour. 
+  // cv::Mat contour_mask_mat1 = cv::Mat::ones(input_frame_mat.size(), 
+  //                                           CV_8U)*kColourOutsideContour;
+  cv::Mat contour_mask_mat1 = input_frame_mat.clone();
+
+  
+  // Apply fillConvexPoly to colour all pixels within contour in test matrix.
+  cv::fillConvexPoly(contour_mask_mat1, hull_points, 
+                      cv::Scalar(kColourInsideContour));
+
+  cv::imshow(contour_name_, contour_mask_mat1);
+  cv::waitKey(1);
 
   const cv::Mat cropped_input_region = input_frame_mat(bounded_rect);
 

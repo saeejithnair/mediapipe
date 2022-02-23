@@ -30,8 +30,8 @@ constexpr char kContourIntensityRCheekTag[] = "CONTOUR_INTENSITY_RCHEEK";
 // while minimizing capture of non-smooth, non-skin artifacts 
 // (eyebrows, facial hair, hairline, nose bridge, etc.)
 constexpr std::array kTrackerIdxsIntensityForehead {103, 67,109, 10, 338, 297, 332, 334, 296, 336, 107, 66, 105, 104, 69, 108, 151, 337, 299, 333};
-constexpr std::array kTrackerIdxsIntensityRightCheek {116, 111, 117, 118, 101, 203, 206, 216, 207, 205, 187, 147, 123, 50};
-constexpr std::array kTrackerIdxsIntensityLeftCheek {345, 340, 346, 347, 330, 266, 423, 426, 436, 427, 411, 376, 352, 280, 425};
+constexpr std::array kTrackerIdxsIntensityLeftCheek {116, 111, 117, 118, 101, 203, 206, 216, 207, 205, 187, 147, 123, 50};
+constexpr std::array kTrackerIdxsIntensityRightCheek {345, 340, 346, 347, 330, 266, 423, 426, 436, 427, 411, 376, 352, 280, 425};
 
 typedef std::vector<NormalizedLandmarkList> NormalizedLandmarkLists;
 } // anonymous namespace
@@ -77,10 +77,16 @@ absl::Status MobioContourCalculator::GetContract(CalculatorContract* cc) {
   // Validate input/output stream tags connected to node.
   RET_CHECK(cc->Inputs().HasTag(kImageTag));
   RET_CHECK(cc->Inputs().HasTag(kLandmarksTag));
+  
   RET_CHECK(cc->InputSidePackets().HasTag(kNumFacesTag));
+  
   RET_CHECK(cc->Outputs().HasTag(kContourIntensityForeheadTag));
   RET_CHECK(cc->Outputs().HasTag(kContourIntensityLCheekTag));
   RET_CHECK(cc->Outputs().HasTag(kContourIntensityRCheekTag));
+  
+  RET_CHECK(cc->OutputSidePackets().HasTag(kContourIntensityForeheadTag));
+  RET_CHECK(cc->OutputSidePackets().HasTag(kContourIntensityLCheekTag));
+  RET_CHECK(cc->OutputSidePackets().HasTag(kContourIntensityRCheekTag));
   
   // Set type for input stream packets.
   cc->Inputs().Tag(kImageTag).Set<ImageFrame>();
@@ -94,6 +100,12 @@ absl::Status MobioContourCalculator::GetContract(CalculatorContract* cc) {
   cc->Outputs().Tag(kContourIntensityLCheekTag).Set<mobio::Points>();
   cc->Outputs().Tag(kContourIntensityRCheekTag).Set<mobio::Points>();
 
+  // Set type for output side packets.
+  cc->OutputSidePackets().Tag(kContourIntensityForeheadTag).Set<std::string>();
+  cc->OutputSidePackets().Tag(kContourIntensityLCheekTag).Set<std::string>();
+  cc->OutputSidePackets().Tag(kContourIntensityRCheekTag).Set<std::string>();
+
+
   return absl::OkStatus();
 }
 
@@ -101,6 +113,10 @@ absl::Status MobioContourCalculator::Open(CalculatorContext* cc) {
   cc->SetOffset(TimestampDiff(0));
 
   RET_CHECK_OK(PopulateOutputsToTrackersMap());
+
+  for (const auto &[output_tag_name, trackers]: outputs_to_trackers_map_ ) {
+    cc->OutputSidePackets().Tag(output_tag_name).Set(MakePacket<std::string>(output_tag_name));
+  }
 
   return absl::OkStatus();
 }

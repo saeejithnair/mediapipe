@@ -40,6 +40,7 @@ cc_library(
         "//mediapipe/framework/port:logging",
         "//mediapipe/framework/port:opencv_core",
         "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_highgui",
     ],
     alwayslink = 1,
 )

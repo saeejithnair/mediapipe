@@ -38,12 +38,16 @@ node {
   output_stream: "CONTOUR_INTENSITY_FOREHEAD:contour_intensity_forehead"
   output_stream: "CONTOUR_INTENSITY_LCHEEK:contour_intensity_lcheek"
   output_stream: "CONTOUR_INTENSITY_RCHEEK:contour_intensity_rcheek"
+  output_side_packet: "CONTOUR_INTENSITY_FOREHEAD:contour_region_forehead"
+  output_side_packet: "CONTOUR_INTENSITY_LCHEEK:contour_region_lcheek"
+  output_side_packet: "CONTOUR_INTENSITY_RCHEEK:contour_region_rcheek"
 }
 
 node {
   calculator: "MobioIntensityCalculator"
   input_stream: "IMAGE:image"
   input_stream: "CONTOUR:contour_intensity_forehead"
+  input_side_packet: "CONTOUR_NAME:contour_region_forehead"
   output_stream: "INTENSITY:intensity_forehead"
 }
 
@@ -51,6 +55,7 @@ node {
   calculator: "MobioIntensityCalculator"
   input_stream: "IMAGE:image"
   input_stream: "CONTOUR:contour_intensity_lcheek"
+  input_side_packet: "CONTOUR_NAME:contour_region_lcheek"
   output_stream: "INTENSITY:intensity_left_cheek"
 }
 
@@ -58,6 +63,7 @@ node {
   calculator: "MobioIntensityCalculator"
   input_stream: "IMAGE:image"
   input_stream: "CONTOUR:contour_intensity_rcheek"
+  input_side_packet: "CONTOUR_NAME:contour_region_rcheek"
   output_stream: "INTENSITY:intensity_right_cheek"
 }
 
