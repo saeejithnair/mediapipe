@@ -1,3 +1,11 @@
+/* @file mobio_intensity_calculator.cc
+ * @brief Mediapipe calculator that computes mean intensity of contour
+ *        within image.
+ *
+ * @author Saeejith Nair
+ * Contact: smnair@uwaterloo.ca
+ */
+
 #include <memory>
 
 #include "mediapipe/framework/calculator_framework.h"
@@ -81,9 +89,11 @@ absl::Status MobioIntensityCalculator::GetContract(CalculatorContract* cc) {
 absl::Status MobioIntensityCalculator::Open(CalculatorContext* cc) {
   cc->SetOffset(TimestampDiff(0));
 
-
   contour_name_ = cc->InputSidePackets().Tag(kContourNameTag).Get<std::string>();
+
+#ifdef MOBIO_DEBUG_ENABLED
   cv::namedWindow(contour_name_, /*flags=WINDOW_AUTOSIZE*/ 0);
+#endif // MOBIO_DEBUG_ENABLED
 
   return absl::OkStatus();
 }
@@ -136,7 +146,7 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
     return SendDummyOutputAndReturnOk(cc);
   }
 
-  const auto& input_frame = cc->Inputs().Tag(kImageTag).Get<ImageFrame>();
+  const ImageFrame& input_frame = cc->Inputs().Tag(kImageTag).Get<ImageFrame>();
   const auto input_frame_width = input_frame.Width();
   const auto input_frame_height = input_frame.Height();
 
@@ -154,22 +164,6 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   // Crop bounded rectangle from input_frame (minimizes computational cost 
   // later on since we're searching over a smaller area).
   const cv::Mat input_frame_mat = formats::MatView(&input_frame);
-
-
-  // Create a test matrix of size cropped_input_region and fill it with 
-  // value of kColourOutsideContour. 
-  // cv::Mat contour_mask_mat1 = cv::Mat::ones(input_frame_mat.size(), 
-  //                                           CV_8U)*kColourOutsideContour;
-  cv::Mat contour_mask_mat1 = input_frame_mat.clone();
-
-  
-  // Apply fillConvexPoly to colour all pixels within contour in test matrix.
-  cv::fillConvexPoly(contour_mask_mat1, hull_points, 
-                      cv::Scalar(kColourInsideContour));
-
-  cv::imshow(contour_name_, contour_mask_mat1);
-  cv::waitKey(1);
-
   const cv::Mat cropped_input_region = input_frame_mat(bounded_rect);
 
   // Translate hull points into bounded rect frame 
@@ -187,8 +181,7 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   cv::Mat contour_mask_mat = cv::Mat::ones(cropped_input_region.size(), 
                                             CV_8U)*kColourOutsideContour;
   
-  
-  // Apply fillConvexPoly to colour all pixels within contour in test matrix.
+  // Apply fillConvexPoly to colour all pixels within contour in mask matrix.
   cv::fillConvexPoly(contour_mask_mat, hull_points, 
                       cv::Scalar(kColourInsideContour));
   

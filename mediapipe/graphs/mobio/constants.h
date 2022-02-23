@@ -1,3 +1,11 @@
+/* @file constants.h
+ * @brief Various constants and type aliases.
+ *        TODO(snair): Separate type aliases into separate file types.h
+ *
+ * @author Saeejith Nair
+ * Contact: smnair@uwaterloo.ca
+ */
+
 #ifndef MEDIAPIPE_GRPAHS_MOBIO_CONSTANTS_H_
 #define MEDIAPIPE_GRPAHS_MOBIO_CONSTANTS_H_
 

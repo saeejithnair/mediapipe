@@ -1,3 +1,11 @@
+/* @file mobio_contour_calculator.cc
+ * @brief Mediapipe calculator that computes contour for face regions
+ *        (forhead, left-cheek, right-cheek).
+ *
+ * @author Saeejith Nair
+ * Contact: smnair@uwaterloo.ca
+ */
+
 #include <memory>
 
 #include "mediapipe/framework/calculator_framework.h"
@@ -114,6 +122,10 @@ absl::Status MobioContourCalculator::Open(CalculatorContext* cc) {
 
   RET_CHECK_OK(PopulateOutputsToTrackersMap());
 
+  // Exit application if configured to detect more than 1 face. 
+  const auto num_faces = cc->InputSidePackets().Tag(kNumFacesTag).Get<int>();
+  RET_CHECK_EQ(num_faces, 1) << "Expected only 1 face, received " << num_faces << " faces.";
+
   for (const auto &[output_tag_name, trackers]: outputs_to_trackers_map_ ) {
     cc->OutputSidePackets().Tag(output_tag_name).Set(MakePacket<std::string>(output_tag_name));
   }
@@ -196,13 +208,6 @@ absl::Status MobioContourCalculator::Process(CalculatorContext* cc) {
 
   // Get vector of landmark list.
   const auto& landmark_lists = cc->Inputs().Tag(kLandmarksTag).Get<NormalizedLandmarkLists>();
-
-  // Log warning if more than 1 face is detected. 
-  const auto num_faces = cc->InputSidePackets().Tag(kNumFacesTag).Get<int>();
-  if (num_faces != 1) {
-    LOG(WARNING) << "Expected only 1 face, received " << num_faces << " faces.";
-    return UpdateTimestampBoundAndReturnOk(cc);
-  }
 
   // Get face landmarks.
   const auto& landmark_list = landmark_lists.front();
