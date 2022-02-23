@@ -23,7 +23,6 @@ constexpr char kIntensityTag[] = "INTENSITY";
 
 constexpr uint8_t kColourInsideContour = 255;
 constexpr uint8_t kColourOutsideContour = 0;
-
 } // anonymous namespace
 
 class MobioIntensityCalculator : public CalculatorBase {
@@ -48,9 +47,9 @@ class MobioIntensityCalculator : public CalculatorBase {
   // Checks to see if an ROI (rect) is within the image.
   bool CheckRoiWithinImage(const cv::Mat& image,const cv::Rect& rect);
 
-  // Updates the timestamp bound for registered output tag name.
+  // Sends a dummy intensity output to registered output tag name.
   // Always returns absl::StatusOk(). 
-  absl::Status UpdateTimestampBoundAndReturnOk(CalculatorContext* cc);
+  absl::Status SendDummyOutputAndReturnOk(CalculatorContext* cc);
 
 };
 
@@ -108,9 +107,12 @@ bool MobioIntensityCalculator::CheckRoiWithinImage(const cv::Mat& image,
   return (rect & cv::Rect(0, 0, image.cols, image.rows)) == rect;
 }
 
-absl::Status MobioIntensityCalculator::UpdateTimestampBoundAndReturnOk(CalculatorContext* cc) {
-  cc->Outputs().Tag(kIntensityTag).SetNextTimestampBound(
-                  cc->InputTimestamp().NextAllowedInStream());
+absl::Status MobioIntensityCalculator::SendDummyOutputAndReturnOk(CalculatorContext* cc) {
+  auto dummy_intensity_ptr = absl::make_unique<mobio::Intensity>(
+                                        mobio::kDummyIntensityValue, 
+                                        mobio::kDummyIntensityValue,
+                                        mobio::kDummyIntensityValue);
+  cc->Outputs().Tag(kIntensityTag).Add(dummy_intensity_ptr.release(), cc->InputTimestamp());
 
   return absl::OkStatus();
 }
@@ -120,7 +122,7 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
       cc->Inputs().Tag(kContourTag).IsEmpty()) {
     LOG(WARNING) << "Missing inputs.";
     
-    return UpdateTimestampBoundAndReturnOk(cc);
+    return SendDummyOutputAndReturnOk(cc);
   }
 
   const auto& input_frame = cc->Inputs().Tag(kImageTag).Get<ImageFrame>();
@@ -151,7 +153,7 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   if (!status.ok()) {
     LOG(WARNING) << "Error encountered while translating hull points. "
                  << status;
-    return UpdateTimestampBoundAndReturnOk(cc);
+    return SendDummyOutputAndReturnOk(cc);
   }
 
   // Create a test matrix of size cropped_input_region and fill it with 
@@ -172,7 +174,7 @@ absl::Status MobioIntensityCalculator::Process(CalculatorContext* cc) {
   if (!status.ok()) {
     LOG(WARNING) << "Error encountered while computing mean intensity of contour. "
                  << status;
-    return UpdateTimestampBoundAndReturnOk(cc);
+    return SendDummyOutputAndReturnOk(cc);
   }
 
   // Publish outputs.

@@ -10,7 +10,9 @@ output_stream: "output_video"
 output_stream: "multi_face_landmarks"
 
 # Mobio output video
-output_stream: "mobio_output_video"
+output_stream: "intensity_forehead"
+output_stream: "intensity_left_cheek"
+output_stream: "intensity_right_cheek"
 
 # Throttles the images flowing downstream for flow control. It passes through
 # the very first incoming image unaltered, and waits for downstream nodes

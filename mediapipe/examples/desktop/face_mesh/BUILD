@@ -32,6 +32,15 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "face_mesh_cpu_mobio",
+    deps = [
+        "//mediapipe/examples/desktop:demo_run_graph_mobio_main",
+        "//mediapipe/graphs/face_mesh:desktop_live_calculators_mobio",
+    ],
+)
+
+
 # Linux only
 cc_binary(
     name = "face_mesh_gpu",
