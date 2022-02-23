@@ -34,7 +34,7 @@ constexpr char kOutputStream[] = "output_video";
 constexpr char kIntensityForehead[] = "intensity_forehead";
 constexpr char kIntensityLCheek[] = "intensity_left_cheek";
 constexpr char kIntensityRCheek[] = "intensity_right_cheek";
-constexpr char kWindowName[] = "MediaPipe";
+constexpr char kWindowName[] = "Mobio Facial Analysis";
 
 ABSL_FLAG(std::string, calculator_graph_config_file, "",
           "Name of file containing text format CalculatorGraphConfig proto.");
